@@ -1,16 +1,24 @@
 # tidygeocoder
 
-A tidyverse-style geocoder interface for R. Utilizes US Census and Nominatim (OSM) geocoder services. Returns latitude and longitude in tibble format from addresses.
+[![CRAN](https://www.r-pkg.org/badges/version/tidygeocoder)](https://cran.r-project.org/package=tidygeocoder)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/jessecambon/tidygeocoder/blob/master/LICENSE.md)
+[![CRAN\_Download\_Badge](http://cranlogs.r-pkg.org/badges/grand-total/tidygeocoder)](https://CRAN.R-project.org/package=tidygeocoder)
 
-## Installation
+A [tidyverse](https://www.tidyverse.org/)-style geocoder interface for R. Utilizes [US Census](https://geocoding.geo.census.gov/) and [Nominatim](https://nominatim.org) (OSM) geocoder services. Returns latitude and longitude in [tibble format](https://tibble.tidyverse.org/) from addresses. You can find a demo I wrote up on R-Bloggers [here](https://www.r-bloggers.com/geocoding-with-tidygeocoder/).
 
-To download, install, and load package from github:
+## Install
+
+To install the stable version from CRAN (the official R package servers):
 
 ```
-install.packages('devtools')
-library(devtools)
-install_github("jessecambon/tidygeocoder",build_vignettes=TRUE)
-library(tidygeocoder)
+install.packages('tidygeocoder')
+```
+
+To install the development version from GitHub:
+
+```
+if(!require(devtools)) install.packages("devtools")
+devtools::install_github("jessecambon/tidygeocoder",build_vignettes=TRUE)
 ```
 
 ## Usage
@@ -42,6 +50,9 @@ dataset. Since we are using the US Census geocoder service, international locati
 Plot our geolocated points:
 
 ```r
+library(ggplot2)
+library(maps)
+library(ggrepel)
 ggplot(lat_longs %>% filter(!is.na(longitude)),aes(longitude, latitude),color="grey98") +
   borders("state") + theme_classic() + geom_point() +
   theme(line = element_blank(),text = element_blank(),title = element_blank()) +
@@ -72,27 +83,9 @@ cascade_points <- sample_addresses %>%
 | International City   | Nairobi, Kenya                             | \-1.283253 |    36.81724 | osm         |
 
 ## References
-* US Census Geocoder: https://geocoding.geo.census.gov/
-* Nominatim (OSM): https://nominatim.openstreetmap.org/ and https://nominatim.org
-* tmaptools package (used for OSM geocoding): https://cran.r-project.org/package=tmaptools
-* dplyr: https://dplyr.tidyverse.org/
-
-
-# Developer Notes
-* The man documents are created with roxygen2 based on `R/` directory code files. Run this with CTRL+SHIFT+D (in RStudio) or `royxenize()` before building the package.
-* Test package with `devtools::test()` (see `/tests` directory)
-* Use `devtools::check()` to check for issues (also runs `devtools::test()`)
-* Use `devtools::build()` to build the package with vignettes included (creates .tar.gz file)
-* Use `install.packages(path_to_file, repos = NULL)` to load the package. May need to close out and reopen RStudio to see changes in vignettes and for cross-references in documentation to work. It also may be necessary to knit the vignette `.Rmd` file from a fresh RStudio session (close out the project) to update the HTML file.
-
-## Development Resources
-* General Instructions: http://r-pkgs.had.co.nz/
-* More general instructions: https://rstats-pkgs.readthedocs.io
-* roxygen2 : https://cran.r-project.org/web/packages/roxygen2/
-* Devtools cheat sheet: https://www.rstudio.com/wp-content/uploads/2015/03/devtools-cheatsheet.pdf
-
-## Todo/Backlog
-* Make `geocode()` function able to take a vector input (no dataframe)?
-* Classify address as street level, zip, city level, US/vs non-US, etc. and hand it to the proper geocoder
-* Warning for when user has hit usage limit on OSM
-* Progress bar?
+* [US Census Geocoder](https://geocoding.geo.census.gov/)
+* [Nominatim Geocoder](https://nominatim.org)
+* [Nominatim Address Check](https://nominatim.openstreetmap.org/)
+* [tmaptools](https://cran.r-project.org/package=tmaptools) package (used for OSM geocoding)
+* [dplyr](https://dplyr.tidyverse.org/)
+* [tidyr](https://tidyr.tidyverse.org)

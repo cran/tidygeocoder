@@ -1,22 +1,22 @@
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 
-## ----setup,warning=F,message=F-------------------------------------------
+## ----setup,warning=F,message=F------------------------------------------------
 library(dplyr)
 library(tidygeocoder)
 library(knitr)
 
-## ----geocode,warning=F---------------------------------------------------
+## ----geocode,warning=F--------------------------------------------------------
 lat_longs <- sample_addresses %>% 
   geocode(addr,lat=latitude,long=longitude)
 
-## ----display-------------------------------------------------------------
+## ----display------------------------------------------------------------------
 kable(lat_longs)
 
-## ----map,fig.width=8,fig.height=5,warning=F,message=F--------------------
+## ----map,fig.width=8,fig.height=5,warning=F,message=F-------------------------
 if ((require("ggplot2") & require("maps") & require("ggrepel"))) {
 
 ggplot(lat_longs %>% filter(!is.na(longitude)),aes(longitude,latitude),color="grey98") +
@@ -32,10 +32,10 @@ ggplot(lat_longs %>% filter(!is.na(longitude)),aes(longitude,latitude),color="gr
 }
 #ggsave("us_map.png",width=8,height=5)
 
-## ----warning=F-----------------------------------------------------------
+## ----warning=F----------------------------------------------------------------
 cascade_points <- sample_addresses %>% 
   geocode(addr,method='cascade')
 
-## ----display-cascade,warning=F-------------------------------------------
+## ----display-cascade,warning=F------------------------------------------------
 kable(cascade_points)
 
