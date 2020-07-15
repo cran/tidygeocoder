@@ -1,91 +1,143 @@
-# tidygeocoder
+
+<!-- README.md is generated from README.Rmd. Please edit that file directly and reknit -->
+
+# tidygeocoder <a href='https://jessecambon.github.io/tidygeocoder/'><img src='man/figures/tidygeocoder_hex.png' align="right" height="139" /></a>
+
+<!-- badges: start -->
 
 [![CRAN](https://www.r-pkg.org/badges/version/tidygeocoder)](https://cran.r-project.org/package=tidygeocoder)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/jessecambon/tidygeocoder/blob/master/LICENSE.md)
+[![License:
+MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/jessecambon/tidygeocoder/blob/master/LICENSE.md)
 [![CRAN\_Download\_Badge](http://cranlogs.r-pkg.org/badges/grand-total/tidygeocoder)](https://CRAN.R-project.org/package=tidygeocoder)
+<!-- badges: end -->
 
-A [tidyverse](https://www.tidyverse.org/)-style geocoder interface for R. Utilizes [US Census](https://geocoding.geo.census.gov/) and [Nominatim](https://nominatim.org) (OSM) geocoder services. Returns latitude and longitude in [tibble format](https://tibble.tidyverse.org/) from addresses. You can find a demo I wrote up on R-Bloggers [here](https://www.r-bloggers.com/geocoding-with-tidygeocoder/).
+## Introduction
 
-## Install
+Tidygeocoder makes getting data from geocoder services easy. In addition
+to the usage example below, you can find a blog post on geocoding
+landmarks in Washington, DC
+[here](https://jessecambon.github.io/2019/11/11/tidygeocoder-demo.html).
 
-To install the stable version from CRAN (the official R package servers):
+All results are returned in [tibble
+format](https://tibble.tidyverse.org/). Batch geocoding (geocoding
+multiple addresses per query) is used by default for the US Census and
+Geocodio services when multiple addresses are provided. Duplicate,
+missing/NA, and blank address data is handled elegantly - only unique
+addresses are passed to geocoder services, but the rows in the original
+data are preserved.
 
-```
+## Geocoder Services
+
+The currently supported services are the [US Census
+geocoder](https://geocoding.geo.census.gov/), [Nominatim
+(OSM)](https://nominatim.org), [Geocodio](https://www.geocod.io/), and
+[Location IQ](https://locationiq.com/). The Census geocoder is
+restricted to street-level addresses in the United States, Geocodio
+covers the U.S. and Canada, while Location IQ and OSM have worldwide
+coverage. The Census and OSM services support batch geocoding (Location
+IQ and OSM do not).
+
+The Census and OSM services are free; Geocodio and Location IQ are
+commercial services that require API keys, but also offer free usage
+tiers. OSM and Location IQ both have usage frequency limits. Refer to
+the documentation of each service for more details.
+
+## Installation
+
+To install the stable version from CRAN (the official R package
+servers):
+
+``` r
 install.packages('tidygeocoder')
 ```
 
-To install the development version from GitHub:
+Alternatively you can install the development version from GitHub:
 
-```
+``` r
 if(!require(devtools)) install.packages("devtools")
-devtools::install_github("jessecambon/tidygeocoder",build_vignettes=TRUE)
+devtools::install_github("jessecambon/tidygeocoder")
 ```
 
 ## Usage
-In this brief example, we will use the US Census API to geocode some addresses in the `sample_addresses` dataset.
+
+In this example we will geocode a few addresses using the `geocode()`
+function and plot them on a map with ggplot.
 
 ``` r
 library(dplyr)
+library(tibble)
 library(tidygeocoder)
 
-lat_longs <- sample_addresses %>% 
-  geocode(addr,lat=latitude,long=longitude)
+# create a dataframe with addresses
+some_addresses <- tribble(
+~name,                  ~addr,
+"White House",          "1600 Pennsylvania Ave, Washington, DC",
+"Transamerica Pyramid", "600 Montgomery St, San Francisco, CA 94111",     
+"Willis Tower",         "233 S Wacker Dr, Chicago, IL 60606"                                  
+)
+
+# geocode the addresses
+lat_longs <- some_addresses %>%
+  geocode(addr, method = 'census', lat = latitude , long = longitude)
 ```
 
-Latitude and longitude columns are attached to our input
-dataset. Since we are using the US Census geocoder service, international locations and addresses which are not at the street level (such as cities) are not found.
-
+The `geocode()` function attaches latitude and longitude columns to our
+input dataset of addresses. The US Census geocoder is used here, but
+other services can be specified with the `method` argument. See the
+`geo()` function documentation for details.
 
 | name                 | addr                                       | latitude |   longitude |
 | :------------------- | :----------------------------------------- | -------: | ----------: |
-| White House          | 1600 Pennsylvania Ave Washington, DC       | 38.89875 |  \-77.03535 |
+| White House          | 1600 Pennsylvania Ave, Washington, DC      | 38.89875 |  \-77.03535 |
 | Transamerica Pyramid | 600 Montgomery St, San Francisco, CA 94111 | 37.79470 | \-122.40314 |
-| NA                   | Fake Address                               |       NA |          NA |
-| NA                   | NA                                         |       NA |          NA |
-|                      |                                            |       NA |          NA |
-| US City              | Nashville,TN                               |       NA |          NA |
 | Willis Tower         | 233 S Wacker Dr, Chicago, IL 60606         | 41.87851 |  \-87.63666 |
-| International City   | Nairobi, Kenya                             |       NA |          NA |
 
-Plot our geolocated points:
+Now that we have the longitude and latitude coordinates, we can use
+ggplot to plot our addresses on a map.
 
-```r
+``` r
 library(ggplot2)
 library(maps)
 library(ggrepel)
-ggplot(lat_longs %>% filter(!is.na(longitude)),aes(longitude, latitude),color="grey98") +
-  borders("state") + theme_classic() + geom_point() +
-  theme(line = element_blank(),text = element_blank(),title = element_blank()) +
-  geom_label_repel(aes(label =name),show.legend=F) +
-  scale_x_continuous(breaks = NULL) + scale_y_continuous(breaks = NULL)
-```
-![](us_map.png)
 
-To find international and non-street addresses, we must use the OSM
-service. We can use the ‘cascade’ method to attempt to use the US Census
-method for each address and only use the OSM service if the Census
-method fails (since OSM has a usage limit).
+ggplot(lat_longs, aes(longitude, latitude), color="grey99") +
+  borders("state") + geom_point() + 
+  geom_label_repel(aes(label = name)) + 
+  theme_void()
+```
+
+<img src="man/figures/README-unnamed-chunk-6-1.png" style="display: block; margin: auto;" />
+
+To return the full results from a geocoder service (not just latitude
+and longitude) you can use `full_results = TRUE`. Additionally, for the
+Census geocoder you can use `return_type = 'geographies'` to return
+geography columns (state, county, Census tract, and Census block).
 
 ``` r
-cascade_points <- sample_addresses %>% 
-  geocode(addr,method='cascade')
+full <- some_addresses %>%
+  geocode(addr, method = 'census', full_results = TRUE, return_type = 'geographies')
+
+glimpse(full)
+#> Rows: 3
+#> Columns: 15
+#> $ name            <chr> "White House", "Transamerica Pyramid", "Willis Tower"
+#> $ addr            <chr> "1600 Pennsylvania Ave, Washington, DC", "600 Montgom…
+#> $ lat             <dbl> 38.89875, 37.79470, 41.87851
+#> $ long            <dbl> -77.03535, -122.40314, -87.63666
+#> $ id              <int> 1, 2, 3
+#> $ input_address   <chr> "1600 Pennsylvania Ave, Washington, DC, , , ", "600 M…
+#> $ match_indicator <chr> "Match", "Match", "Match"
+#> $ match_type      <chr> "Non_Exact", "Exact", "Exact"
+#> $ matched_address <chr> "1600 PENNSYLVANIA AVE NW, WASHINGTON, DC, 20006", "6…
+#> $ tiger_line_id   <int> 76225813, 192281262, 112050003
+#> $ tiger_side      <chr> "L", "R", "L"
+#> $ state_fips      <int> 11, 6, 17
+#> $ county_fips     <int> 1, 75, 31
+#> $ census_tract    <int> 6202, 61100, 839100
+#> $ census_block    <int> 1031, 1013, 2006
 ```
 
-| name                 | addr                                       |        lat |         long | geo\_method |
-| :------------------- | :----------------------------------------- | ---------: | ----------: | :---------- |
-| White House          | 1600 Pennsylvania Ave Washington, DC       |  38.898754 |  \-77.03535 | census      |
-| Transamerica Pyramid | 600 Montgomery St, San Francisco, CA 94111 |  37.794700 | \-122.40314 | census      |
-| NA                   | Fake Address                               |         NA |          NA | NA          |
-| NA                   | NA                                         |         NA |          NA | NA          |
-|                      |                                            |         NA |          NA | NA          |
-| US City              | Nashville,TN                               |  36.162230 |  \-86.77435 | osm         |
-| Willis Tower         | 233 S Wacker Dr, Chicago, IL 60606         |  41.878513 |  \-87.63666 | census      |
-| International City   | Nairobi, Kenya                             | \-1.283253 |    36.81724 | osm         |
-
-## References
-* [US Census Geocoder](https://geocoding.geo.census.gov/)
-* [Nominatim Geocoder](https://nominatim.org)
-* [Nominatim Address Check](https://nominatim.openstreetmap.org/)
-* [tmaptools](https://cran.r-project.org/package=tmaptools) package (used for OSM geocoding)
-* [dplyr](https://dplyr.tidyverse.org/)
-* [tidyr](https://tidyr.tidyverse.org)
+For further documentation, refer to the [Getting Started
+Vignette](https://jessecambon.github.io/tidygeocoder/articles/tidygeocoder.html)
+and the [function
+documentation](https://jessecambon.github.io/tidygeocoder/reference/index.html).

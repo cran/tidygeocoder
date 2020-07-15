@@ -1,69 +1,153 @@
 ---
-title: "Introduction to Tidygeocoder"
-output: 
-  rmarkdown::html_vignette: default
-  github_document:
+title: "Introduction to tidygeocoder"
+output: rmarkdown::html_vignette
+description: >
+  Start here if this is your first time using tidygeocder.
 vignette: >
-  %\VignetteIndexEntry{Introduction to Tidygeocoder}
-  %\VignetteEncoding{UTF-8}
+  %\VignetteIndexEntry{Introduction to tidygeocoder}
   %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
 ---
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
+```{r, echo = FALSE, message = FALSE}
+knitr::opts_chunk$set(collapse = T, comment = "#>")
+options(tibble.print_min = 4L, tibble.print_max = 4L)
+set.seed(42)
+```
+
+Geocoding services are used to provide data about locations such as longitude and latitude coordinates. The goal of tidygeocoder is to make getting data from these services easy. The two main functions to use are `geocode()` which takes a dataframe as an input and `geo()` which takes character values as inputs.
+
+The `geocode()` function extracts specified address columns from the input dataframe and passes them to `geo()` to perform geocoding. All extra arguments (`...`) given to `geocode()` are passed to `geo()` so refer to the documentation in `geo()` for all the possible arguments you can give to the `geocode()` function.
+
+## Basic Queries
+
+```{r setup, warning = FALSE, message = FALSE}
+library(tibble)
+library(DT)
+library(dplyr)
+library(tidygeocoder)
+
+address_single <- tibble(singlelineaddress = c('11 Wall St, NY, NY', 
+                    '600 Peachtree Street NE, Atlanta, Georgia'))
+address_components <- tribble(
+  ~street                      , ~cty,               ~st,
+  '11 Wall St',                  'NY',               'NY',
+  '600 Peachtree Street NE',     'Atlanta',          'GA'
 )
 ```
 
-The tidygeocoder package provides an intuitive tidyverse-style interface for geocoder services. Currently the US Census and Nominatim (OSM) services are supported. The US Census service requires a street level address that is located in the United States. The OSM service does not have these restrictions, but has usage limits that will cause you to be locked out of the service temporarily. Because of these usage limits the default service for the `geocode()` function is the US Census which we will use to geocode a few street addresses below.
+You can use the `address` argument to specify single-line addresses. Note that when multiple addresses are provided, the batch geocoding functionality of the Census geocoder service is used. Additionally, `verbose = TRUE` displays logs to the console.
 
-```{r setup,warning=F,message=F}
-library(dplyr)
-library(tidygeocoder)
-library(knitr)
+```{r}
+address_single %>% geocode(address = singlelineaddress, method = 'census',
+                           verbose = TRUE)
 ```
 
-Geocode the addresses in our 'sample_addresses' dataset:
+Alternatively you can run the same query with the `geo()` function by passing the address values from the dataframe directly. In either `geo()` or `geocode()`, the `lat` and `long` arguments are used to name the resulting latitude and longitude fields. Here the `method` argument is used to specify the OSM (Nominatim) geocoder service.
 
-```{r geocode,warning=F}
-lat_longs <- sample_addresses %>% 
-  geocode(addr,lat=latitude,long=longitude)
+```{r}
+geo(address = address_single$singlelineaddress, method = 'osm', 
+    lat = latitude, long = longitude)
 ```
 
-Latitude and longitude columns are attached to our input dataset:
+Instead of single-line addresses, you can use any combination of the following arguments to specify your addresses: `street`, `city`, `state`, `county`, `postalcode`, and `country`. 
 
-```{r display}
-kable(lat_longs)
+```{r}
+address_components %>% geocode(street = street, city = cty, state = st,
+                               method = 'census')
 ```
 
-Note that non-US addresses and non-street addresses were not found since we are using the US Census geocoder service. 
+The `cascade` method first tries to use one geocoder service and then again attempts to geocode addresses that were not found using a second geocoder service. By default it first uses the Census Geocoder and then OSM, but you can specify any two methods you want (in order) with the `cascade_order` argument.
 
-```{r map,fig.width=8,fig.height=5,warning=F,message=F}
-if ((require("ggplot2") & require("maps") & require("ggrepel"))) {
+```{r}
+addr_comp1 <- address_components %>% 
+  bind_rows(tibble(cty = c('Toronto', 'Tokyo'), country = c('Canada', 'Japan')))
 
-ggplot(lat_longs %>% filter(!is.na(longitude)),aes(longitude,latitude),color="grey98") +
-  borders("state") +
-  theme_classic() +
-  geom_point() +
-  theme(line = element_blank(),
-        text = element_blank(),
-        title = element_blank()) +
-  geom_label_repel(aes(label =name),show.legend=F) +
-  scale_x_continuous(breaks = NULL) + 
-  scale_y_continuous(breaks = NULL)
-}
-#ggsave("us_map.png",width=8,height=5)
+addr_comp1 %>% geocode(street = street, state = st, city = cty,
+                       country = country, method = 'cascade')
 ```
 
-To find non-US addresses and non-street addresses we can use the OSM service. The 'cascade' method will first attempt to use the US Census method for each address and only use the OSM service if the Census method fails (the Census service is tried first since the OSM service has usage limits).
+## Beyond Latitude and Longitude
 
-```{r,warning=F}
-cascade_points <- sample_addresses %>% 
-  geocode(addr,method='cascade')
+To return more data than just the latitude and longitude coordinates, specify `full_results = TRUE`. Additionally, for the Census geocoder you can get fields for geographies such as Census tracts by specifying `return_type = 'geographies'`. Be sure to use `full_results = TRUE` with `return_type = 'geographies'` in order to allow the Census geography columns to be returned.
+
+```{r}
+census_full1 <- address_single %>% geocode(address = singlelineaddress, 
+      method = 'census', full_results = TRUE, return_type = 'geographies')
+glimpse(census_full1)
 ```
 
-```{r display-cascade,warning=F}
-kable(cascade_points)
+As mentioned earlier, the `geocode()` function passes addresses in dataframes to the `geo()` function for geocoding so we can also directly use `geo()` function in a similar way:
+
+```{r}
+salz <- geo('Salzburg, Austria', method = 'osm', full_results = TRUE)
+glimpse(salz)
+```
+
+## Working With Messy Data
+
+Only unique addresses are passed to geocoder services even if your data contains duplicates. Missing/NA and blank addresses are excluded from queries. 
+
+```{r}
+duplicate_addrs <- address_single %>%
+  bind_rows(address_single) %>%
+  bind_rows(tibble(singlelineaddress = rep(NA, 3)))
+
+duplicates_geocoded <- duplicate_addrs %>%
+  geocode(singlelineaddress, verbose = T)
+
+knitr::kable(duplicates_geocoded)
+```
+
+As shown above, duplicates will not be removed from your results by default. However, you can return only unique results by using `unique_only = TRUE`. Note that passing `unique_only = TRUE` to `geocode()` will result in the original dataframe format (including column names) to be discarded in favor of the standard field names (ie. "address", "city", "state", etc.).
+
+```{r}
+duplicate_addrs %>%
+  geocode(singlelineaddress, unique_only = TRUE)
+```
+
+## Advanced Usage
+
+The `limit` argument can be specified to return multiple matches per address if available:
+
+```{r}
+geo_limit <- geo(c('Lima, Peru', 'Cairo, Egypt'), method = 'osm', 
+    limit = 3, full_results = TRUE)
+glimpse(geo_limit)
+```
+
+To directly specify specific API parameters for a given `method` you can use the `custom_query` parameter. For example, [the Nominatim (OSM) geocoder has a 'polygon_geojson' argument](https://nominatim.org/release-docs/develop/api/Details/#parameters) that can be used to return GeoJSON geometry content. To pass this parameter you can insert it with a named list using the `custom_query` argument:
+
+```{r}
+cairo_geo <- geo('Cairo, Egypt', method = 'osm', full_results = TRUE,
+    custom_query = list(polygon_geojson = 1), verbose = TRUE)
+glimpse(cairo_geo)
+```
+
+To test a query without sending any data to a geocoder service, you can use `no_query = TRUE` (NA results are returned).
+
+```{r}
+geo(c('Vancouver, Canada', 'Las Vegas, NV'), no_query = TRUE, 
+    method = 'osm')
+```
+
+Here are some additional usage notes for the `geocode()` and `geo()` functions:
+
+* To specify a custom geocoder API URL, use the `api_url` argument. Alternatively, the `iq_region` and `geocodio_v` arguments are helper functions for customizing the API URL. 
+* The `min_time` argument defaults to 1 second for Nominatim (OSM) and Location IQ to abide by usage limits. If you are using a local Nominatim server or have commercial Location IQ plan that has less restrictive usage limits, you can manually set `min_time` to 0 or a lower value. 
+* By default batch geocoding will be used if available when more than one address is passed, otherwise single address geocoding will be used. To override this default, use the `mode` argument.
+
+## API Reference
+
+You can refer to the `api_parameter_reference` dataset to see which which parameters are supported with each geocoder service. This dataset is displayed below. 
+
+Refer to `?api_parameter_reference` for more details and links to the API documentation for each geocoder service.
+
+```{r, echo = FALSE}
+api_parameter_reference %>% 
+  select(-required) %>%
+  mutate(across(c(method, generic_name, api_name), as.factor)) %>%
+  datatable(filter = 'top', rownames = FALSE, 
+  options = list(pageLength = 12, autoWidth = TRUE))
 ```
 

@@ -2,44 +2,87 @@
 % Please edit documentation in R/geocode.R
 \name{geocode}
 \alias{geocode}
-\title{Geocode street addresses in a dataframe}
+\title{Geocode addresses in a dataframe}
 \usage{
-geocode(.tbl, address, method = "census", lat = lat, long = long, ...)
+geocode(
+  .tbl,
+  address = NULL,
+  street = NULL,
+  city = NULL,
+  county = NULL,
+  state = NULL,
+  postalcode = NULL,
+  country = NULL,
+  lat = lat,
+  long = long,
+  return_addresses = FALSE,
+  unique_only = FALSE,
+  ...
+)
 }
 \arguments{
-\item{.tbl}{dataframe}
+\item{.tbl}{dataframe containing addresses}
 
-\item{address}{name of column containing addresses in .tbl}
+\item{address}{single line street address column name. Do not combine with 
+address component arguments (street, city, county, state, postalcode, country)}
 
-\item{method}{the geocoder function you want to use
-\itemize{
-  \item "census": \code{\link{geo_census}} - can only handle US street level addresses
-  \item "osm": \code{\link{geo_osm}} - more versatile than Census but has a usage limit
-  \item "cascade": \code{\link{geo_cascade}} - first tries to use census then tries osm
-}}
+\item{street}{street address column name}
 
-\item{lat}{name of latitude field}
+\item{city}{city column name}
 
-\item{long}{name of longitude field}
+\item{county}{county column name}
 
-\item{...}{arguments supplied to the relevant geocoder function}
+\item{state}{state column name}
+
+\item{postalcode}{postalcode column name (zip code if in the United States)}
+
+\item{country}{country column name}
+
+\item{lat}{latitude column name. Can be quoted or unquoted (ie. lat or 'lat').}
+
+\item{long}{longitude column name. Can be quoted or unquoted (ie. long or 'long').}
+
+\item{return_addresses}{if TRUE then addresses with standard names will be returned
+This is defaulted to FALSE because the address fields are already in the input dataset}
+
+\item{unique_only}{if TRUE then only unique addresses and results will be returned. 
+The input dataframe's format is not preserved. Addresses will also be returned if 
+TRUE (overrides return_addresses argument).}
+
+\item{...}{arguments passed to the \code{\link{geo}} function}
 }
 \value{
-input dataframe (.tbl) with latitude and longitude fields appended
+input dataframe (.tbl) with geocoder results appended as columns
 }
 \description{
-Takes a dataframe containing addresses as a input. Returns
-the dataframe with latitude and longitude coordinate columns
-using a user specified geocoder function.
-}
-\details{
-See example usage in \code{vignette("tidygeocoder")}
+Takes a dataframe containing addresses as an input and returns 
+the dataframe results from a specified geocoder service by using the
+\code{\link{geo}} function. See example usage in \code{vignette("tidygeocoder")}.
+
+This function passes all additional parameters (\code{...}) to the 
+\code{\link{geo}} function, so you can refer to its documentation for more details
+on possible arguments.
+
+Note that the arguments used for specifying address columns (address, 
+street, city, county, state, postalcode, and country) accept either
+quoted or unquoted column names (ie. "address_col" and address_col are 
+both acceptable).
 }
 \examples{
 \donttest{
 library(dplyr)
-sample_addresses \%>\% geocode(addr)
+sample_addresses[1:3,] \%>\% geocode(addr)
 
-sample_addresses \%>\% geocode(addr,method='cascade',lat=latitude,long=longitude)
+louisville[1:2,] \%>\% geocode(street = street, city = city, state = state,
+  postalcode = zip)
+
+sample_addresses[8:9,] \%>\% geocode(addr, method = 'osm',
+  lat = 'lattes', long = 'longos')
+
+sample_addresses[1:3,] \%>\% geocode(addr, method = 'cascade',
+  lat = latitude, long = longitude)
 }
+}
+\seealso{
+\code{\link{geo}}
 }
