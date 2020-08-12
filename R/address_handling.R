@@ -1,6 +1,5 @@
 # Function for packaging and deduping addresses that are passed to the geo function
 # package addresses
-# @export
 package_addresses <- function(address = NULL, 
   street = NULL, city = NULL, county = NULL, state = NULL, postalcode = NULL, country = NULL) {
   
@@ -26,7 +25,7 @@ package_addresses <- function(address = NULL,
   addr_colnames <- names(addr_orig) # store column names
   
   
-  ### Clean and deduplicate addresses. Remove all NA/missing addresses 
+  # Clean and deduplicate addresses. Remove all NA/missing addresses 
   unique_addr <- addr_orig
   # remove rows that are entirely blank or NA
   unique_addr <- unique_addr[!apply(is.na(unique_addr) | unique_addr == "", 1, all), ]
@@ -42,7 +41,7 @@ package_addresses <- function(address = NULL,
                       crosswalk = tibble::tibble(.id = 1:nrow(addr_orig), .uid=1)))
   }
   
-  ## Create unique identifiers
+  # Create unique identifiers
   unique_addr[['.uid']] <- 1:nrow(unique_addr)
   # create id to record original address order
   addr_orig[['.id']] <- 1:nrow(addr_orig)
@@ -60,11 +59,12 @@ package_addresses <- function(address = NULL,
   ))
 }
 
-#
 # Function for unpackaging and RE-deduping addresses
 # so that we can return them in the same order that they were passed
 # this function assumes that the results are in the same order as package$unique
-# @param unique_only if TRUE then only unique results are returned
+# Args:
+#   unique_only: if TRUE then only unique results are returned
+#   return_addresses: if TRUE then include input addresses in the returned results
 # 
 # @export
 unpackage_addresses <- function(package, results, unique_only = FALSE, return_addresses = FALSE) {

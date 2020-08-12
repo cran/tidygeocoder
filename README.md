@@ -5,18 +5,29 @@
 
 <!-- badges: start -->
 
-[![CRAN](https://www.r-pkg.org/badges/version/tidygeocoder)](https://cran.r-project.org/package=tidygeocoder)
+[![Project Status: Active – The project has reached a stable, usable
+state and is being actively
+developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![License:
 MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/jessecambon/tidygeocoder/blob/master/LICENSE.md)
-[![CRAN\_Download\_Badge](http://cranlogs.r-pkg.org/badges/grand-total/tidygeocoder)](https://CRAN.R-project.org/package=tidygeocoder)
+[![CRAN](https://www.r-pkg.org/badges/version/tidygeocoder)](https://cran.r-project.org/package=tidygeocoder)
+[![CRAN Total
+Downloads](http://cranlogs.r-pkg.org/badges/grand-total/tidygeocoder)](https://CRAN.R-project.org/package=tidygeocoder)
+[![CRAN Downloads Per
+Month](http://cranlogs.r-pkg.org/badges/tidygeocoder)](https://cran.r-project.org/package=tidygeocoder)
+<!--[![Github Stars](https://img.shields.io/github/stars/jessecambon/tidygeocoder?style=social&label=Github)](https://github.com/jessecambon/tidygeocoder) -->
 <!-- badges: end -->
 
 ## Introduction
 
 Tidygeocoder makes getting data from geocoder services easy. In addition
-to the usage example below, you can find a blog post on geocoding
-landmarks in Washington, DC
-[here](https://jessecambon.github.io/2019/11/11/tidygeocoder-demo.html).
+to the usage example below you can find a post on making a map of
+European soccer club stadiums
+[here](https://jessecambon.github.io/2020/07/15/tidygeocoder-1-0-0.html),
+a post on mapping landmarks in Washington, DC
+[here](https://jessecambon.github.io/2019/11/11/tidygeocoder-demo.html),
+and a vignette with more detailed usage examples
+[here](https://jessecambon.github.io/tidygeocoder/articles/tidygeocoder.html).
 
 All results are returned in [tibble
 format](https://tibble.tidyverse.org/). Batch geocoding (geocoding
@@ -106,7 +117,7 @@ ggplot(lat_longs, aes(longitude, latitude), color="grey99") +
   theme_void()
 ```
 
-<img src="man/figures/README-unnamed-chunk-6-1.png" style="display: block; margin: auto;" />
+<img src="man/figures/README-usamap-1.png" style="display: block; margin: auto;" />
 
 To return the full results from a geocoder service (not just latitude
 and longitude) you can use `full_results = TRUE`. Additionally, for the

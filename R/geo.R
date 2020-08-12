@@ -16,7 +16,7 @@
 #' 
 #' @param address single line address (ie. '1600 Pennsylvania Ave NW, Washington, DC').
 #'    Do not combine with the address component arguments below
-#'    (street, city , county, state, postalcode, country).
+#'    (street, city, county, state, postalcode, country).
 #' @param street street address (ie. '1600 Pennsylvania Ave NW')
 #' @param city city (ie. 'Tokyo')
 #' @param county county (ie. 'Jefferson')
@@ -25,7 +25,7 @@
 #' @param country country (ie. 'Japan')
 #' 
 #' @param method the geocoder service to be used. Refer to 
-#' `api_parameter_reference` and the API documentation for
+#' \code{\link{api_parameter_reference}} and the API documentation for
 #' each geocoder service for usage details and limitations.
 #' \itemize{
 #'   \item \code{"census"}: US Census Geocoder. US street-level addresses only. 
@@ -43,7 +43,8 @@
 #'     services have different columns that they return.
 #' }
 #' @param cascade_order a vector with two character values for the method argument 
-#' in the order in which the geocoder services will be attempted for method = "cascade"
+#'  in the order in which the geocoder services will be attempted for method = "cascade"
+#'  (ie. \code{c('census', 'geocodio')})
 #' @param lat latitude column name. Can be quoted or unquoted (ie. lat or 'lat').
 #' @param long longitude column name. Can be quoted or unquoted (ie. long or 'long').
 #' @param limit number of results to return per address. Note that 
@@ -51,39 +52,43 @@
 #' @param min_time minimum amount of time for a query to take (in seconds) if using
 #'  Location IQ or OSM. This parameter is used to abide by API usage limits. You can
 #'  set it to a lower value (ie. 0) if using a local Nominatim server, for instance.
-#' @param api_url Custom API URL. If specified, the default API URL will be overridden.
+#' @param api_url custom API URL. If specified, the default API URL will be overridden.
 #'  This can be used to specify a local Nominatim server.
 #' @param timeout query timeout (in minutes)
 #' 
-#' @param mode set to 'batch' to force batch geocoding and 'single' to 
+#' @param mode set to 'batch' to force batch geocoding or 'single' to 
 #'  force single address geocoding (one address per query). If not 
 #'  specified then batch geocoding will be used if available
 #'  (given method selected) when multiple addresses are provided, otherwise
 #'  single address geocoding will be used.
-#' @param full_results returns all data from geocoder service if TRUE
+#' @param full_results returns all data from the geocoder service if TRUE. 
+#' If FALSE then only longitude and latitude are returned from the geocoder service.
 #' @param unique_only only return results for unique addresses if TRUE
 #' @param return_addresses return input addresses with results if TRUE
 #' 
-#' @param flatten if TRUE then any nested dataframes in results are flattened
+#' @param flatten if TRUE then any nested dataframes in results are flattened if possible.
+#'    Note that Geocodio batch geocoding results are flattened regardless.
 #' @param batch_limit limit to the number of addresses in a batch geocoding query.
 #'  Both geocodio and census batch geocoders have a 10,000 address limit so this
 #'  is the default.
 #' @param verbose if TRUE then detailed logs are output to the console
-#' @param no_query if TRUE then no queries are sent to the geocoder and verbose is set to TRUE 
+#' @param no_query if TRUE then no queries are sent to the geocoder and verbose is set to TRUE
 
 #' @param custom_query API-specific parameters to be used, passed as a named list 
-#'  (ie. `list(vintage = 'Current_Census2010')`)
-#' @param return_type    (census only) 'locations' (default) or 'geographies' which 
-#'  returns additional census geography columns. See the Census geocoder API 
-#'  documentation for more details.
+#'  (ie. \code{list(vintage = 'Current_Census2010')}).
+#' @param return_type only used when method = 'census'. Two possible values: 
+#' \itemize{
+#'     \item \code{"locations"} (default)
+#'     \item \code{"geographies"}: returns additional geography columns. 
+#'     See the Census geocoder API documentation for more details.
+#' }
 #' @param iq_region 'us' (default) or 'eu'. Used for establishing API URL for the 'iq' method
 #' @param geocodio_v version of geocodio api. 1.6 is default. Used for establishing API URL
 #'   for the 'geocodio' method.
 #' 
-#' @return parsed results from the geocoder service
+#' @return parsed geocoding results in tibble format
 #' @examples
 #' \donttest{
-#' 
 #' geo(street = "600 Peachtree Street NE", city = "Atlanta",
 #'  state = "Georgia", method = "census")
 #' 
@@ -92,9 +97,8 @@
 #' 
 #' geo(county = 'Jefferson', state = "Kentucky", country = "US",
 #'      method = 'osm')
-#' 
 #' }
-#' @seealso \code{\link{api_parameter_reference}}
+#' @seealso \code{\link{geocode}} \code{\link{api_parameter_reference}}
 #' @export
 geo <- function(address = NULL, 
     street = NULL, city = NULL, county = NULL, state = NULL, postalcode = NULL, country = NULL,
@@ -113,7 +117,7 @@ geo <- function(address = NULL,
   # make sure to put this before any other variables are defined
   all_args <- as.list(environment())
   
-  ## Check inputs
+  # Check inputs
   stopifnot(mode %in% c('', 'single', 'batch'), 
     method %in% c('census', 'osm', 'iq', 'geocodio', 'cascade'),
     is.logical(verbose), is.logical(no_query), is.logical(flatten), 
@@ -123,8 +127,8 @@ geo <- function(address = NULL,
   if (no_query == TRUE) verbose <- TRUE
   start_time <- Sys.time() # start timer
   
-  # If method='cascade' is called then pass all function arguments 
-  # except for method to geo_cascade and return the results 
+  # If method = 'cascade' is called then pass all function arguments 
+  # except for method to geo_cascade() and return the results 
   if (method == 'cascade') {
     if (full_results == TRUE) stop("full_results = TRUE cannot be used with the cascade method.")
     if (limit != 1) stop("limit argument must be 1 (default) to use the cascade method.")
@@ -150,16 +154,17 @@ geo <- function(address = NULL,
     return(unpackage_addresses(address_pack, NA_value, unique_only, return_addresses))
   }
   
-  ## If there are multiple addresses and we are using a method without a batch geocoder 
-  ## OR the user has explicitly specified single address geocoding.. call the 
-  ## single address geocoder in a loop
+  # Single Address geocoding -------------------------------------------------------------
+  # If there are multiple addresses and we are using a method without a batch geocoder 
+  # OR the user has explicitly specified single address geocoding.. call the 
+  # single address geocoder in a loop (ie. recursively call this function)
   if ((num_unique_addresses > 1) & ((method %in% c('osm', 'iq')) | (mode == 'single'))) {
       if (verbose == TRUE) {
         message('Executing single address geocoding...')
         message()
       }
       
-      # construct args for single address query
+      # construct arguments for a single address query
       # note that non-address related fields go to the MoreArgs argument of mapply
       # since we aren't iterating through them
       single_addr_args <- c(
@@ -173,24 +178,25 @@ geo <- function(address = NULL,
       list_coords <- do.call(mapply, single_addr_args)
       # rbind the list of tibble dataframes together
       stacked_results <- dplyr::bind_rows(list_coords)
+      
       # note that return_addresses has been set to FALSE here since addresses will already
       # be returned in the first geo function call (if asked for)
       return(unpackage_addresses(address_pack, stacked_results, unique_only, return_addresses = FALSE))
       }
       
-  ### Batch geocoding -----------------------------------------------------
+  # Batch geocoding --------------------------------------------------------------------------
   if ((num_unique_addresses > 1) | (mode == 'batch')) {
     
     if (limit != 1 & return_addresses == TRUE) {
     stop('For batch geocoding (more than one address per query) the limit argument must 
-    be 1 (default) OR the return_addresses argument must be FALSE. Possible solutions:
+    be 1 (the default) OR the return_addresses argument must be FALSE. Possible solutions:
     1) Set the mode argument to "single" to force single (not batch) geocoding 
     2) Set limit argument to 1 (ie. 1 result is returned per address)
     3) Set return_addresses to FALSE
     See the geo() function documentation for details.')
     }
   
-    #### Enforce batch limit
+    # Enforce batch limit
     if (num_unique_addresses > batch_limit) {
       message(paste0('Limiting batch query to ', batch_limit, ' addresses'))
       address_pack$unique <- address_pack$unique[1:batch_limit, ]
@@ -225,13 +231,13 @@ geo <- function(address = NULL,
   #### Code past this point is for geocoding a single address #####
   #################################################################
   
-  ### Set min_time if not set
+  # Set min_time if not set
   if (method %in% c('osm','iq') & is.null(min_time))  min_time <- 1 
   else if (is.null(min_time)) min_time <- 0
   
-  ### Start to build 'generic' query as named list -------------------------
+  # Start to build 'generic' query as named list -------------------------
   generic_query <- list()
-  ## Geocodio and IQ services require an API key
+  # Geocodio and IQ services require an API key
   if (method %in% c('geocodio','iq')) {
     generic_query[['api_key']] <- get_key(method)
   }
@@ -267,12 +273,12 @@ geo <- function(address = NULL,
   
   if (length(api_url) == 0) stop('API URL not found')
   
-  ### Execute Single Address Query -----------------------------------------
+  # Execute Single Address Query -----------------------------------------
   if (verbose == TRUE) display_query(api_url, api_query_parameters)
   if (no_query == TRUE) return(unpackage_addresses(address_pack, NA_value, unique_only, return_addresses))
   raw_results <- jsonlite::fromJSON(query_api(api_url, api_query_parameters))
   
-  ## output error message for geocodio if present
+  # output error message for geocodio if present
   if ((method == 'geocodio') & (!is.data.frame(raw_results)) & ("error" %in% names(raw_results))) {
     message(paste0('Error: ', raw_results$error))
     results <- NA_value
@@ -283,8 +289,8 @@ geo <- function(address = NULL,
     results <- NA_value
     if (verbose == TRUE) message("No results found")
   } else {
-    ### Extract results. Use the full_results and flatten parameters
-    ### to control the output
+    # Extract results. Use the full_results and flatten parameters
+    # to control the output
     results <- extract_results(method, raw_results, full_results, flatten)
     
     # Name the latitude and longitude columns in accordance with lat/long arguments
@@ -292,7 +298,7 @@ geo <- function(address = NULL,
     names(results)[2] <- long
   }
   
-  ### Make sure the proper amount of time has elapsed for the query per min_time
+  # Make sure the proper amount of time has elapsed for the query per min_time
   pause_until(start_time, min_time, debug = verbose) 
   if (verbose == TRUE) message() # insert ending line break if verbose
   

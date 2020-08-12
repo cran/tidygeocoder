@@ -78,5 +78,5 @@ api_parameter_reference %>%
   select(-required) %>%
   mutate(across(c(method, generic_name, api_name), as.factor)) %>%
   datatable(filter = 'top', rownames = FALSE, 
-  options = list(pageLength = 12, autoWidth = TRUE))
+  options = list(lengthMenu = c(5, 8, 12, nrow(.)), pageLength = 12, autoWidth = TRUE))
 

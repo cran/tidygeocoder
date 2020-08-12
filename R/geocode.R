@@ -37,7 +37,7 @@
 #' @examples
 #' \donttest{
 #' library(dplyr)
-#' sample_addresses[1:3,] %>% geocode(addr)
+#' sample_addresses[1:2,] %>% geocode(addr)
 #' 
 #' louisville[1:2,] %>% geocode(street = street, city = city, state = state,
 #'   postalcode = zip)
@@ -45,16 +45,17 @@
 #' sample_addresses[8:9,] %>% geocode(addr, method = 'osm',
 #'   lat = 'lattes', long = 'longos')
 #'
-#' sample_addresses[1:3,] %>% geocode(addr, method = 'cascade',
+#' sample_addresses[4:5,] %>% geocode(addr, method = 'cascade',
 #'   lat = latitude, long = longitude)
 #' }
-#' @seealso \code{\link{geo}}
+#' @seealso \code{\link{geo}} \code{\link{api_parameter_reference}}
 #' @export
 geocode <- function(.tbl, address = NULL, street = NULL, city = NULL, county = NULL, 
                     state = NULL, postalcode = NULL, country = NULL,
                     lat = lat, long = long, return_addresses = FALSE, unique_only = FALSE, ...) {
   
-  # NSE - Quote unquoted vars without double quoting quoted vars
+  # Non-standard evaluation --------------------------------------------------------------
+  # Quote unquoted vars without double quoting quoted vars
   # end result - all of these variables become character values
   if(!is.null(substitute(address)))     address    <- rm_quote(deparse(substitute(address)))
   if(!is.null(substitute(street)))      street     <- rm_quote(deparse(substitute(street)))
@@ -77,6 +78,8 @@ geocode <- function(.tbl, address = NULL, street = NULL, city = NULL, county = N
   for (var in pkg.globals$address_arg_names) {
     if (!is.null(all_args[[var]])) addr_parameters[[var]] <- .tbl[[all_args[[var]]]]
   }
+  
+  # Arguments to pass to geo()
   geo_args <- c(addr_parameters, 
       all_args[!names(all_args) %in% c('.tbl', pkg.globals$address_arg_names)], list(...))
   

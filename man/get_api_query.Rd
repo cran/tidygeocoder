@@ -2,7 +2,7 @@
 % Please edit documentation in R/query_factory.R
 \name{get_api_query}
 \alias{get_api_query}
-\title{Construct a Geocoder API Query}
+\title{Construct a geocoder API query}
 \usage{
 get_api_query(method, generic_parameters = list(), custom_parameters = list())
 }
@@ -14,7 +14,7 @@ get_api_query(method, generic_parameters = list(), custom_parameters = list())
 \item{custom_parameters}{custom api-specific parameters}
 }
 \value{
-named list of parameters
+API parameters as a named list
 }
 \description{
 The geocoder API query is created using universal "generic" parameters
@@ -25,6 +25,13 @@ dataset.
 The \code{\link{query_api}} function executes the queries created 
 by this function.
 }
+\examples{
+get_api_query("osm", list(address = 'Hanoi, Vietnam'))
+
+get_api_query("census", list(street = '11 Wall St', city = "NY", state = 'NY'),
+  list(benchmark = "Public_AR_Census2010"))
+
+}
 \seealso{
-\code{\link{query_api}} \code{\link{geo}}
+\code{\link{query_api}} \code{\link{geo}} \code{\link{api_parameter_reference}}
 }
