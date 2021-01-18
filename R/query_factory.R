@@ -5,7 +5,8 @@ get_key <- function(method) {
   # define environmental variable name
   env_var <- switch(method,
          'geocodio' = "GEOCODIO_API_KEY",
-         'iq' = "LOCATIONIQ_API_KEY"
+         'iq' = "LOCATIONIQ_API_KEY",
+         'google' = "GOOGLEGEOCODE_API_KEY"
          )
   # load api key from environmental variable
   key <- Sys.getenv(env_var)
@@ -34,6 +35,8 @@ get_iq_url <- function(region) {
   # region can be 'us' or 'eu'
   return(paste0("https://", region, "1.locationiq.com/v1/search.php"))
 }
+
+get_google_url <- function() return("https://maps.googleapis.com/maps/api/geocode/json")
 
 # API Parameters ----------------------------------------------------------------
 
@@ -163,9 +166,13 @@ query_api <- function(api_url, query_parameters, mode = 'single',
 
 # print values in a named list (used for displaying query parameters)
 display_named_list <- function(named_list) {
+  
+  # unique parameter names for all api keys
+  api_key_names <- unique(tidygeocoder::api_parameter_reference[which(tidygeocoder::api_parameter_reference[['generic_name']] == 'api_key'), ][['api_name']])
+  
   for (var in names(named_list)) {
     ## censor API Key values
-    if (var %in% c('api_key', 'key')) {
+    if (var %in% api_key_names) {
       named_list[var] <- paste(rep('x', nchar(named_list[var])), collapse ='')
     }
     message(paste0(var, ' : "', named_list[var], '"'))
@@ -178,4 +185,19 @@ display_query <- function(api_url, api_query_parameters) {
   message(paste0('Querying API URL: ', api_url))
   message('Passing the following parameters to the API:')
   display_named_list(api_query_parameters)
+}
+
+# Get the legal generic parameters (ie. address, city, limit, etc.)
+# for a method (don't call with method = 'cascade')
+# if address_only = TRUE then limit to address parameters (street, city, address, etc.)
+get_generic_parameters <- function(method, address_only = FALSE) {
+
+  all_params <- tidygeocoder::api_parameter_reference[which(tidygeocoder::api_parameter_reference[['method']] == method), ][['generic_name']]
+  
+  if (address_only == TRUE) {
+    return(all_params[all_params %in% pkg.globals$address_arg_names])
+  } else {
+    return(all_params)
+  }
+  
 }

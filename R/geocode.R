@@ -72,11 +72,22 @@ geocode <- function(.tbl, address = NULL, street = NULL, city = NULL, county = N
   # capture all function arguments including default values as a named list
   all_args <- as.list(environment())
 
+  if (!(is.data.frame(.tbl))) {
+    stop('.tbl is not a dataframe. See ?geocode')
+  }
+  
   # put all non-NULL address components into a named list
   # create address parameters to be passed to the geo function as a named list of lists
   addr_parameters <- list()
   for (var in pkg.globals$address_arg_names) {
-    if (!is.null(all_args[[var]])) addr_parameters[[var]] <- .tbl[[all_args[[var]]]]
+    if (!is.null(all_args[[var]])) {
+      
+      # throw error if the an address parameter doesn't specify a column in the dataset
+      if (!(all_args[[var]] %in% colnames(.tbl))) {
+        stop(paste0('"', all_args[[var]], '" is not a column name in the input dataset.'))
+      }
+      addr_parameters[[var]] <- .tbl[[all_args[[var]]]]
+    }
   }
   
   # Arguments to pass to geo()

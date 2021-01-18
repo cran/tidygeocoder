@@ -31,7 +31,8 @@ geo(
   custom_query = list(),
   return_type = "locations",
   iq_region = "us",
-  geocodio_v = 1.6
+  geocodio_v = 1.6,
+  param_error = TRUE
 )
 }
 \arguments{
@@ -63,6 +64,8 @@ each geocoder service for usage details and limitations.
      the "GEOCODIO_API_KEY" environmental variable.
   \item \code{"iq"}: Commercial Nominatim geocoder service. Requires an API Key to
      be stored in the "LOCATIONIQ_API_KEY" environmental variable.
+  \item \code{"google"}: Commercial Google geocoder service. Requires an API Key to
+     be stored in the "GOOGLEGEOCODE_API_KEY" environmental variable.
   \item \code{"cascade"} : Attempts to use one geocoder service and then uses
     a second geocoder service if the first service didn't return results.
     The services and order is specified by the cascade_order argument. 
@@ -78,15 +81,16 @@ in the order in which the geocoder services will be attempted for method = "casc
 
 \item{long}{longitude column name. Can be quoted or unquoted (ie. long or 'long').}
 
-\item{limit}{number of results to return per address. Note that 
-limit > 1 is not compatible with batch geocoding if return_addresses = TRUE.}
+\item{limit}{number of results to return per address. Note that not all methods support
+setting limit to a value other than 1. Also limit > 1 is not compatible 
+with batch geocoding if return_addresses = TRUE.}
 
 \item{min_time}{minimum amount of time for a query to take (in seconds) if using
 Location IQ or OSM. This parameter is used to abide by API usage limits. You can
 set it to a lower value (ie. 0) if using a local Nominatim server, for instance.}
 
 \item{api_url}{custom API URL. If specified, the default API URL will be overridden.
-This can be used to specify a local Nominatim server.}
+This parameter can be used to specify a local Nominatim server.}
 
 \item{timeout}{query timeout (in minutes)}
 
@@ -101,7 +105,9 @@ If FALSE then only longitude and latitude are returned from the geocoder service
 
 \item{unique_only}{only return results for unique addresses if TRUE}
 
-\item{return_addresses}{return input addresses with results if TRUE}
+\item{return_addresses}{return input addresses with results if TRUE. Note that
+most services return the input addresses with full_results = TRUE and setting
+return_addresses to FALSE does not prevent this.}
 
 \item{flatten}{if TRUE then any nested dataframes in results are flattened if possible.
 Note that Geocodio batch geocoding results are flattened regardless.}
@@ -128,6 +134,10 @@ is the default.}
 
 \item{geocodio_v}{version of geocodio api. 1.6 is default. Used for establishing API URL
 for the 'geocodio' method.}
+
+\item{param_error}{if TRUE then an error will be thrown if certain parameters are invalid for the selected geocoder
+service (method). The parameters checked are limit, address, street, city, county, state, postalcode, and country.
+If method = 'cascade' then no errors will be thrown.}
 }
 \value{
 parsed geocoding results in tibble format
@@ -140,7 +150,7 @@ See example usage in \code{vignette("tidygeocoder")}
 Note that not all geocoder services support certain address component 
 parameters. For example, the Census geocoder only covers the United States 
 and does not have a "country" parameter. Refer to \code{\link{api_parameter_reference}} 
-for more details on geocoder services and API usage. 
+for more details on geocoder service parameters and API usage. 
 
 This function uses the \code{\link{get_api_query}}, \code{\link{query_api}}, and
 \code{\link{extract_results}} functions to create, execute, and parse the geocoder

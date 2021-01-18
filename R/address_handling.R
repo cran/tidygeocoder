@@ -48,7 +48,7 @@ package_addresses <- function(address = NULL,
   
   # crosswalk
   crosswalk <- merge(addr_orig, unique_addr, by = addr_colnames, all.x = TRUE, sort = FALSE)
-  crosswalk <- crosswalk[order(crosswalk['.id']), ]  # reorder
+  crosswalk <- crosswalk[order(crosswalk[['.id']]), ]  # reorder
   
   # Return a named list containing two dataframes.
   # unique contains all the unique addresses to pass to the geocoder service
@@ -88,8 +88,10 @@ unpackage_addresses <- function(package, results, unique_only = FALSE, return_ad
   results[['.uid']] <- 1:nrow(results)
   
   # join crosswalk and results
-  base <- merge(package$crosswalk, results, by = '.uid', all.x = TRUE, sort = FALSE)
-  base <- base[order(base['.id']), ]  # reorder
+  # had to use dplyr::left_join instead of merge() due to errors when the datasets
+  # contain NA values and nested dataframes 
+  base <- dplyr::left_join(package$crosswalk, results, by = '.uid')
+  base <- base[order(base[['.id']]), ]  # reorder just in case
 
   return(tibble::as_tibble(base[!names(base) %in% id_colnames]))
 }

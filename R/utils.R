@@ -1,6 +1,6 @@
 ### Put common utility functions here
 
-# Declaring global variables
+## Declare global variables
 pkg.globals <- new.env()
 pkg.globals$address_arg_names <- c('address', 'street', 'city', 'county', 'state', 'postalcode', 'country')
 
@@ -50,15 +50,18 @@ pause_until <- function(start_time, min_time, debug=FALSE) {
 #' @seealso \code{\link{get_api_query}} \code{\link{query_api}} \code{\link{geo}}
 #' @export 
 extract_results <- function(method, response, full_results = TRUE, flatten = TRUE) {
+  # NOTE - the geo() function takes the output of this function and renames the 
+  # latitude and longitude columns
   
-  NA_result <- tibble::tibble(lat = NA, long = NA)
+  NA_result <- get_na_value('lat', 'long', 1)
   
   # extract latitude and longitude as a dataframe
   lat_lng <- switch(method,
     'census' = response$result$addressMatches$coordinates[c('y','x')],
     'osm' = response[c('lat', 'lon')],
     'iq' = response[c('lat', 'lon')],
-    'geocodio' = response$results$location[c('lat', 'lng')]
+    'geocodio' = response$results$location[c('lat', 'lng')],
+    'google' = response$results$geometry$location[c('lat','lng')]
   )
   
   # if null result then return NA
@@ -72,11 +75,13 @@ extract_results <- function(method, response, full_results = TRUE, flatten = TRU
   
   if (full_results == TRUE) {
   # extract full results excluding latitude and longitude
+  # note that lat/long are not excluded from the google results due to dataframe nesting
     results <- switch(method,
       'census' = response$result$addressMatches[!names(response$result$addressMatches) %in% c('coordinates')],
       'osm' = response[!names(response) %in% c('lat', 'lon')],
       'iq' =  response[!names(response) %in% c('lat', 'lon')],
-      'geocodio' = response$results[!names(response$results) %in% c('location')]
+      'geocodio' = response$results[!names(response$results) %in% c('location')],
+      'google' = response$results
     )
     
     combined_results <- tibble::as_tibble(cbind(lat_lng, results))
@@ -93,7 +98,7 @@ extract_results <- function(method, response, full_results = TRUE, flatten = TRU
 # Return a 2 column, 1 row NA tibble dataframe for coordinates that aren't found
 # Given the column names (as strings)
 get_na_value <- function(lat, long, rows = 1) {
-  NA_df <- tibble::tibble(a = rep(NA, rows), b = rep(NA, rows))
+  NA_df <- tibble::tibble(a = rep(as.numeric(NA), rows), b = rep(as.numeric(NA), rows))
   colnames(NA_df) <- c(lat, long)
   return(NA_df)
 }

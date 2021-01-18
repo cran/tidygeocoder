@@ -1,3 +1,22 @@
+
+## IMPORTANT: All new batch geocoding functions must be added to batch_func_map
+# the geo() function references this list to find batch geocoding functions (batch_geocoding.R)
+# maps method names to batch functions
+batch_func_map <- list(
+  geocodio = batch_geocodio, 
+  census = batch_census
+)
+
+# stores the minimum number of seconds that must elapse for each query
+# based on the usage limit of the service (free tier if there are multiple plans available)
+# Stored value is SECONDS PER QUERY
+usage_limit_map <- list(
+  osm = 1,               # 1 query/second             
+  geocodio = 60/1000,    # 1000 queries per minute (free tier)
+  iq = 1/2,              # 2 queries per second (free tier)
+  google = 1/50          # 50 queries per second
+)
+
 #' Geocode addresses
 #' 
 #' @description
@@ -8,7 +27,7 @@
 #' Note that not all geocoder services support certain address component 
 #' parameters. For example, the Census geocoder only covers the United States 
 #' and does not have a "country" parameter. Refer to \code{\link{api_parameter_reference}} 
-#' for more details on geocoder services and API usage. 
+#' for more details on geocoder service parameters and API usage. 
 #' 
 #' This function uses the \code{\link{get_api_query}}, \code{\link{query_api}}, and
 #' \code{\link{extract_results}} functions to create, execute, and parse the geocoder
@@ -36,6 +55,8 @@
 #'      the "GEOCODIO_API_KEY" environmental variable.
 #'   \item \code{"iq"}: Commercial Nominatim geocoder service. Requires an API Key to
 #'      be stored in the "LOCATIONIQ_API_KEY" environmental variable.
+#'   \item \code{"google"}: Commercial Google geocoder service. Requires an API Key to
+#'      be stored in the "GOOGLEGEOCODE_API_KEY" environmental variable.
 #'   \item \code{"cascade"} : Attempts to use one geocoder service and then uses
 #'     a second geocoder service if the first service didn't return results.
 #'     The services and order is specified by the cascade_order argument. 
@@ -47,13 +68,14 @@
 #'  (ie. \code{c('census', 'geocodio')})
 #' @param lat latitude column name. Can be quoted or unquoted (ie. lat or 'lat').
 #' @param long longitude column name. Can be quoted or unquoted (ie. long or 'long').
-#' @param limit number of results to return per address. Note that 
-#'  limit > 1 is not compatible with batch geocoding if return_addresses = TRUE.
+#' @param limit number of results to return per address. Note that not all methods support
+#'  setting limit to a value other than 1. Also limit > 1 is not compatible 
+#'  with batch geocoding if return_addresses = TRUE.
 #' @param min_time minimum amount of time for a query to take (in seconds) if using
 #'  Location IQ or OSM. This parameter is used to abide by API usage limits. You can
 #'  set it to a lower value (ie. 0) if using a local Nominatim server, for instance.
 #' @param api_url custom API URL. If specified, the default API URL will be overridden.
-#'  This can be used to specify a local Nominatim server.
+#'  This parameter can be used to specify a local Nominatim server.
 #' @param timeout query timeout (in minutes)
 #' 
 #' @param mode set to 'batch' to force batch geocoding or 'single' to 
@@ -64,7 +86,9 @@
 #' @param full_results returns all data from the geocoder service if TRUE. 
 #' If FALSE then only longitude and latitude are returned from the geocoder service.
 #' @param unique_only only return results for unique addresses if TRUE
-#' @param return_addresses return input addresses with results if TRUE
+#' @param return_addresses return input addresses with results if TRUE. Note that
+#'    most services return the input addresses with full_results = TRUE and setting
+#'    return_addresses to FALSE does not prevent this.
 #' 
 #' @param flatten if TRUE then any nested dataframes in results are flattened if possible.
 #'    Note that Geocodio batch geocoding results are flattened regardless.
@@ -85,6 +109,9 @@
 #' @param iq_region 'us' (default) or 'eu'. Used for establishing API URL for the 'iq' method
 #' @param geocodio_v version of geocodio api. 1.6 is default. Used for establishing API URL
 #'   for the 'geocodio' method.
+#' @param param_error if TRUE then an error will be thrown if certain parameters are invalid for the selected geocoder
+#'   service (method). The parameters checked are limit, address, street, city, county, state, postalcode, and country.
+#'   If method = 'cascade' then no errors will be thrown.
 #' 
 #' @return parsed geocoding results in tibble format
 #' @examples
@@ -106,7 +133,8 @@ geo <- function(address = NULL,
     min_time = NULL, api_url = NULL, timeout = 20,
     mode = '', full_results = FALSE, unique_only = FALSE, return_addresses = TRUE, 
     flatten = TRUE, batch_limit = 10000, verbose = FALSE, no_query = FALSE, 
-    custom_query = list(), return_type = 'locations', iq_region = 'us', geocodio_v = 1.6) {
+    custom_query = list(), return_type = 'locations', iq_region = 'us', geocodio_v = 1.6, 
+    param_error = TRUE) {
 
   # NSE - Quote unquoted vars without double quoting quoted vars
   # end result - all of these variables become character values
@@ -114,54 +142,128 @@ geo <- function(address = NULL,
   long <- rm_quote(deparse(substitute(long)))
   
   # capture all function arguments including default values as a named list.
-  # make sure to put this before any other variables are defined
+  # IMPORTANT: make sure to put this statement before any other variables are defined in the function
   all_args <- as.list(environment())
   
-  # Check inputs
-  stopifnot(mode %in% c('', 'single', 'batch'), 
-    method %in% c('census', 'osm', 'iq', 'geocodio', 'cascade'),
-    is.logical(verbose), is.logical(no_query), is.logical(flatten), 
-     is.logical(full_results), is.logical(unique_only), is.logical(return_addresses), 
-     limit >= 1, batch_limit >= 1)
+  # Reference Variables ------------------------------------------------------------
+  
+  # All legal methods (besides 'cascade')
+  method_services <- unique(tidygeocoder::api_parameter_reference[['method']])
+  # which methods require an api key
+  methods_requiring_api_key <- unique(tidygeocoder::api_parameter_reference[which(tidygeocoder::api_parameter_reference[['generic_name']] == 'api_key'), ][['method']])
+  
+  # Check parameter arguments --------------------------------------------------------
+  # all legal method argument excluding 'cascade'
+
+  # Check argument inputs
+  stopifnot(is.logical(verbose), is.logical(no_query), is.logical(flatten), is.logical(param_error),
+            is.logical(full_results), is.logical(unique_only), is.logical(return_addresses),
+            is.numeric(limit), is.numeric(batch_limit), is.numeric(timeout),
+            limit >= 1, batch_limit >= 1, timeout >= 0, is.list(custom_query))
+  
+  if (!(method %in% c('cascade', method_services))) {
+    stop('Invalid method argument. See ?geo')
+  } 
+  
+  if (!(cascade_order[1] %in% method_services) | !(cascade_order[2] %in% method_services) | (length(cascade_order) != 2) |  !(is.character(cascade_order))) {
+    stop('Invalid cascade_order argument. See ?geo')
+  }
+  
+  if (!(mode %in% c('', 'single', 'batch'))) {
+    stop('Invalid mode argument. See ?geo')
+  }
+  
+  if (!(return_type %in% c('geographies', 'locations'))) {
+    stop('Invalid return_type argument. See ?geo')
+  }
   
   if (no_query == TRUE) verbose <- TRUE
   start_time <- Sys.time() # start timer
   
-  # If method = 'cascade' is called then pass all function arguments 
-  # except for method to geo_cascade() and return the results 
-  if (method == 'cascade') {
-    if (full_results == TRUE) stop("full_results = TRUE cannot be used with the cascade method.")
-    if (limit != 1) stop("limit argument must be 1 (default) to use the cascade method.")
-    return(do.call(geo_cascade, all_args[!names(all_args) %in% c('method')]))
-  }
-  
-  # check address inputs and deduplicate
-  address_pack <- package_addresses(address, street, city , county, 
+  ## Address parsing and deduplication -------------------------------------------------------
+  address_pack <- package_addresses(address, street, city, county, 
            state, postalcode, country)
   
   # count number of unique addresses
   num_unique_addresses <- nrow(address_pack$unique) # unique addresses
   # determine how many rows will be returned (either unique or includes duplicate address rows)
-  num_rows_to_return <- ifelse(unique_only, num_unique_addresses, nrow(address_pack$crosswalk))
+  # num_rows_to_return <- ifelse(unique_only, num_unique_addresses, nrow(address_pack$crosswalk))
+  #num_rows_to_return <- num_unique_addresses # used for na values
   
-  NA_value <- get_na_value(lat, long, rows = num_rows_to_return) # filler result to return if needed
+  NA_value <- get_na_value(lat, long, rows = num_unique_addresses) # filler result to return if needed
   
   if (verbose == TRUE) message(paste0('Number of Unique Addresses: ', num_unique_addresses))
   
-  # If no valid/nonblank addresses are passed then return NA
+  # If no valid/non-blank addresses are passed then return NA
   if (num_unique_addresses == 1 & all(is.na(address_pack$unique))) {
     if (verbose == TRUE) message(paste0('No non-blank non-NA addreses found. Returning NA results.'))
     return(unpackage_addresses(address_pack, NA_value, unique_only, return_addresses))
   }
   
+  ### Parameter Check ------------------------------------------------------
+  # check if limit and address parameters that are used are valid for the method
+  if (method == 'cascade') {
+    # for cascade, only mark a parameter as illegal if it is illegal for both methods
+    legal_parameters <- unique(c(get_generic_parameters(cascade_order[1]), 
+                               get_generic_parameters(cascade_order[2])))
+    
+    # string value to show the user the selected methods for cascade
+    str_cascade_meth <- paste0(' ("', paste0(cascade_order, collapse = '", "'), '")')
+    
+  } else {
+    legal_parameters <- get_generic_parameters(method)
+    str_cascade_meth <- '' # blank if method != 'cascade'
+  }
+  
+  # add illegal parameters that are selected to this vector
+  illegal_params <- c()
+  
+  # If a parameter is used that is not supported by the method then throw an error
+  for (param in colnames(address_pack$unique)) {
+    if (!(param %in% legal_parameters)) {
+      illegal_params <- c(illegal_params, param)
+    }
+  }
+  
+  if (length(illegal_params) > 0) {
+    param_message <- paste0('The following parameter(s) are not supported for the "', 
+                           method,'"', str_cascade_meth,
+                           ' method:\n\n', paste0(illegal_params, collapse = ' '),
+                           '\n\nSee ?api_parameter_reference for more details.')
+    
+    if (param_error == TRUE) stop(param_message)
+    else if (verbose == TRUE) message(param_message)
+  }
+  
+  # Cascade method -------------------------------------------------------------
+  # If method = 'cascade' is called then pass all function arguments 
+  # except for method and param_error to geo_cascade() and return the results 
+  if (method == 'cascade') {
+    if (full_results == TRUE) stop("full_results = TRUE cannot be used with the cascade method.")
+    if (limit != 1) stop("limit argument must be 1 (default) to use the cascade method.")
+    
+    return(do.call(geo_cascade, 
+                   c(all_args[!names(all_args) %in% c('method', 'param_error')], list(param_error = FALSE))))
+  }
+  
+  # determine if an illegal limit parameter value was used (ie. if limit !=1
+  # then the method API must have a limit parameter)
+  if ((limit != 1) & (!('limit' %in% legal_parameters))) {
+    illegal_limit_message <- paste0('The limit parameter must be set to 1 (the default) because the "',  method,'" ',
+                                    'method API service does not support a limit argument.\n\n',
+                                    'See ?api_parameter_reference for more details.')
+    
+    if (param_error == TRUE) stop(illegal_limit_message)
+    else if (verbose == TRUE) message(illegal_limit_message)
+  }
+  
   # Single Address geocoding -------------------------------------------------------------
-  # If there are multiple addresses and we are using a method without a batch geocoder 
-  # OR the user has explicitly specified single address geocoding.. call the 
+  # If there are multiple addresses and we are using a method without a batch geocoder function 
+  # OR the user has explicitly specified single address geocoding then call the 
   # single address geocoder in a loop (ie. recursively call this function)
-  if ((num_unique_addresses > 1) & ((method %in% c('osm', 'iq')) | (mode == 'single'))) {
+  if ((num_unique_addresses > 1) & ((!(method %in% names(batch_func_map))) | (mode == 'single'))) {
       if (verbose == TRUE) {
-        message('Executing single address geocoding...')
-        message()
+        message('Executing single address geocoding...\n')
       }
       
       # construct arguments for a single address query
@@ -196,26 +298,33 @@ geo <- function(address = NULL,
     See the geo() function documentation for details.')
     }
   
-    # Enforce batch limit
+    # Enforce batch limit if needed
     if (num_unique_addresses > batch_limit) {
-      message(paste0('Limiting batch query to ', batch_limit, ' addresses'))
-      address_pack$unique <- address_pack$unique[1:batch_limit, ]
-      num_rows_to_return <- batch_limit
+      message(paste0('Limiting batch query to ', format(batch_limit, big.mark = ','), ' addresses'))
+      batch_addresses <-  address_pack$unique[1:batch_limit, ]
+    } else {
+      batch_addresses <- address_pack$unique
     }
-      
-    if (verbose == TRUE) message(paste0('Passing ', num_unique_addresses, 
+    
+    if (verbose == TRUE) message(paste0('Passing ', 
+      format(min(batch_limit, num_unique_addresses), big.mark = ','), 
                           ' addresses to the ', method, ' batch geocoder'))
+    
     # Convert our generic query parameters into parameters specific to our API (method)
     if (no_query == TRUE) return(unpackage_addresses(address_pack, 
-         get_na_value(lat, long, rows = num_rows_to_return), 
+         get_na_value(lat, long, rows = num_unique_addresses), 
          unique_only, return_addresses))
     
-    batch_results <- switch(method,
-      'census' = do.call(batch_census, c(list(address_pack),
-            all_args[!names(all_args) %in% pkg.globals$address_arg_names])),
-      'geocodio' = do.call(batch_geocodio, c(list(address_pack),
-            all_args[!names(all_args) %in% pkg.globals$address_arg_names]))
-      )
+    # call the appropriate function for batch geocoding according the the batch_func_map named list
+    # if batch limit was exceeded then apply that limit
+    batch_results <- do.call(batch_func_map[[method]], c(list(batch_addresses),
+          all_args[!names(all_args) %in% pkg.globals$address_arg_names]))
+    
+    # Add NA results if batch limit was reached so rows match up
+    if (num_unique_addresses > batch_limit) {
+      batch_filler <- get_na_value(lat, long, rows = num_unique_addresses - batch_limit)
+      batch_results <- dplyr::bind_rows(batch_results, batch_filler)
+    }
     
     # if verbose = TRUE, tell user how long batch query took
     if (verbose == TRUE) {
@@ -231,17 +340,8 @@ geo <- function(address = NULL,
   #### Code past this point is for geocoding a single address #####
   #################################################################
   
-  # Set min_time if not set
-  if (method %in% c('osm','iq') & is.null(min_time))  min_time <- 1 
-  else if (is.null(min_time)) min_time <- 0
-  
   # Start to build 'generic' query as named list -------------------------
   generic_query <- list()
-  # Geocodio and IQ services require an API key
-  if (method %in% c('geocodio','iq')) {
-    generic_query[['api_key']] <- get_key(method)
-  }
-  if (!is.null(limit)) generic_query[['limit']]   <- limit
   
   # construct query with single-line address or address components
   if  (!is.null(address)) {
@@ -258,29 +358,49 @@ geo <- function(address = NULL,
     if (!is.null(country))      generic_query[['country']]      <- address_pack$unique$country
   }
   
-  # Convert our generic query parameters into parameters specific to our API (method)
-  api_query_parameters <- get_api_query(method, generic_query, custom_query)
-  
   # Set API URL (if not already set) ---------------------------
   if (is.null(api_url)) {
     api_url <- switch(method,
-      "census" = get_census_url(return_type, search),
-      "osm" = get_osm_url(),
-      "geocodio" = get_geocodio_url(geocodio_v),
-      "iq" = get_iq_url(iq_region)
-      )
+                      "census" = get_census_url(return_type, search),
+                      "osm" = get_osm_url(),
+                      "geocodio" = get_geocodio_url(geocodio_v),
+                      "iq" = get_iq_url(iq_region),
+                      "google" = get_google_url()
+    )
+  }
+  if (length(api_url) == 0) stop('API URL not found')
+  
+  # Set min_time if not set based on usage limit of service
+  if (is.null(min_time)) {
+    if (method %in% names(usage_limit_map)) min_time <- usage_limit_map[[method]]
+    else min_time <- 0 # default to 0
+  }
+
+  # If API key is required then use the get_key() function to retrieve it
+  if (method %in% methods_requiring_api_key) {
+    generic_query[['api_key']] <- get_key(method)
   }
   
-  if (length(api_url) == 0) stop('API URL not found')
+  if (!is.null(limit)) generic_query[['limit']] <- limit
+  
+  # Convert our generic query parameters into parameters specific to our API (method)
+  api_query_parameters <- get_api_query(method, generic_query, custom_query)
   
   # Execute Single Address Query -----------------------------------------
   if (verbose == TRUE) display_query(api_url, api_query_parameters)
   if (no_query == TRUE) return(unpackage_addresses(address_pack, NA_value, unique_only, return_addresses))
   raw_results <- jsonlite::fromJSON(query_api(api_url, api_query_parameters))
   
+  
+  ## Extract results -----------------------------------------------------------------------------------
   # output error message for geocodio if present
   if ((method == 'geocodio') & (!is.data.frame(raw_results)) & ("error" %in% names(raw_results))) {
     message(paste0('Error: ', raw_results$error))
+    results <- NA_value
+  } 
+  # output error message for google if present
+  else if ((method == 'google') & (!is.data.frame(raw_results)) & ("error_message" %in% names(raw_results))) {
+    message(paste0('Error: ', raw_results$error_message))
     results <- NA_value
   } 
   else if (length(raw_results) == 0) {
@@ -288,7 +408,8 @@ geo <- function(address = NULL,
     # otherwise extract results
     results <- NA_value
     if (verbose == TRUE) message("No results found")
-  } else {
+  } 
+  else {
     # Extract results. Use the full_results and flatten parameters
     # to control the output
     results <- extract_results(method, raw_results, full_results, flatten)

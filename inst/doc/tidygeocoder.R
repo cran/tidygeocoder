@@ -75,7 +75,7 @@ geo(c('Vancouver, Canada', 'Las Vegas, NV'), no_query = TRUE,
 
 ## ---- echo = FALSE------------------------------------------------------------
 api_parameter_reference %>% 
-  select(-required) %>%
+#  select(-required) %>%
   mutate(across(c(method, generic_name, api_name), as.factor)) %>%
   datatable(filter = 'top', rownames = FALSE, 
   options = list(lengthMenu = c(5, 8, 12, nrow(.)), pageLength = 12, autoWidth = TRUE))

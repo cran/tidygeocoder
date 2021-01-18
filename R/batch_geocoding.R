@@ -1,14 +1,13 @@
 ### Functions for batch geocoding that are called by geo()
 
-
 # Census batch geocoding
 # @param address_pack packaged addresses object
 # Vintage must be defined if return = 'geographies'
-batch_census <- function(address_pack,
+batch_census <- function(unique_addresses,
      return_type = 'locations', timeout = 20, full_results = FALSE, custom_query = list(), api_url = NULL,
      lat = 'lat', long = 'long', verbose = FALSE, ...) {
   
-  if (!'street' %in% names(address_pack$unique) & (!'address' %in% names(address_pack$unique))) {
+  if (!'street' %in% names(unique_addresses) & (!'address' %in% names(unique_addresses))) {
     stop("To use the census geocoder, either 'street' or 'address' must be defined")
   }
   
@@ -21,15 +20,15 @@ batch_census <- function(address_pack,
   
   if (is.null(api_url)) api_url <- get_census_url(return_type, 'addressbatch')
   
-  num_addresses <- nrow(address_pack$unique)
+  num_addresses <- nrow(unique_addresses)
 
   # create input dataframe
   input_df <- tibble::tibble(
     id      = 1:num_addresses,
-    street  = if ('street' %in% names(address_pack$unique)) address_pack$unique$street else address_pack$unique$address,
-    city    = if ('city' %in% names(address_pack$unique)) address_pack$unique$city else NA,
-    state   = if ('state' %in% names(address_pack$unique)) address_pack$unique$state else NA,
-    zip     = if ('postalcode' %in% names(address_pack$unique)) address_pack$unique$postalcode else NA
+    street  = if ('street' %in% names(unique_addresses)) unique_addresses$street else unique_addresses$address,
+    city    = if ('city' %in% names(unique_addresses)) unique_addresses$city else NA,
+    state   = if ('state' %in% names(unique_addresses)) unique_addresses$state else NA,
+    zip     = if ('postalcode' %in% names(unique_addresses)) unique_addresses$postalcode else NA
   )
   
   # Write a Temporary CSV
@@ -44,13 +43,27 @@ batch_census <- function(address_pack,
   # Query API
   raw_content <- query_api(api_url, query_parameters, mode = 'file', 
           batch_file = tmp, content_encoding = "ISO-8859-1", timeout = timeout)
-
-  results <- utils::read.csv(text = raw_content, header = FALSE,
-                             col.names = return_cols,
-                             fill = TRUE, stringsAsFactors = FALSE,
-                             na.strings = '')
   
-  results <- results[order(results['id']), ]  # make sure results remain in proper order
+  # force certain geographies columns to be read in as character instead of numeric
+  # to preserve leading zeros (for FIPS codes)
+  column_classes <- ifelse(return_type == 'geographies',
+       c('state_fips' = 'character',
+         'county_fips' = 'character',
+         'census_tract' = 'character',
+         'census_block' = 'character'),
+          NA)
+  
+  results <- utils::read.csv(text = raw_content, header = FALSE,
+       col.names = return_cols,
+       colClasses = column_classes,
+       fill = TRUE, stringsAsFactors = FALSE,
+       na.strings = '')
+  
+  # convert 'id' to integer since we sort on it
+  results[['id']] <- as.integer(results[['id']])
+  
+  # make sure results remain in proper order
+  results <- results[order(results[['id']]), ]
 
   # split out lat/lng. lapply is used with as.numeric to convert coordinates to numeric
   coord_df <- do.call(rbind, lapply(results$coords, split_coords))
@@ -70,12 +83,12 @@ batch_census <- function(address_pack,
 
 # Batch geocoding with geocodio
 # ... are arguments passed from the geo() function
-batch_geocodio <- function(address_pack, lat = 'lat', long = 'long', timeout = 20, full_results = FALSE, verbose = FALSE,
-   api_url = NULL, geocodio_v = 1.6, limit = 1, ...) {
-  # https://www.geocod.io/docs/#batch-geocoding
+# https://www.geocod.io/docs/#batch-geocoding
+batch_geocodio <- function(unique_addresses, lat = 'lat', long = 'long', timeout = 20, full_results = FALSE, custom_query = list(),
+verbose = FALSE, api_url = NULL, geocodio_v = 1.6, limit = 1, ...) {
   
   # limit the dataframe to legitimate arguments
-  address_df <- address_pack$unique[names(address_pack$unique) %in% c('address', 'street', 'city', 'state', 'postalcode')]
+  address_df <- unique_addresses[names(unique_addresses) %in% get_generic_parameters('geocodio', address_only = TRUE)]
   
   ## If single line addresses are passed then we will package them as a single list
   if ('address' %in% names(address_df)) {
@@ -92,7 +105,8 @@ batch_geocodio <- function(address_pack, lat = 'lat', long = 'long', timeout = 2
   
   if (is.null(api_url)) api_url <- get_geocodio_url(geocodio_v)
   # Construct query
-  query_parameters <- get_api_query('geocodio', list(limit = limit, api_key = get_key('geocodio')))
+  query_parameters <- get_api_query('geocodio', list(limit = limit, api_key = get_key('geocodio')),
+                                    custom_parameters = custom_query)
   if (verbose == TRUE) display_query(api_url, query_parameters)
   
   # Query API
