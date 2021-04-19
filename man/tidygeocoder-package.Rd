@@ -4,11 +4,12 @@
 \name{tidygeocoder-package}
 \alias{tidygeocoder}
 \alias{tidygeocoder-package}
-\title{\pkg{tidygeocoder} makes getting data from geocoder services easy.}
+\title{The tidygeocoder package makes getting data from geocoder services easy.}
 \description{
-The primary functions to use are \code{\link{geocode}} and \code{\link{geo}}.
-Refer to the documentation on the method argument of the \code{\link{geo}} function
-for more details on the available geocoder services. Also see \code{vignette("tidygeocoder")} 
+The \link{geocode} and \link{geo} functions are for forward geocoding while
+the \link{reverse_geocode} and \link{reverse_geo} functions are for reverse geocoding.
+Refer to the documentation on the \code{method} argument in the \link{geo} and \link{reverse_geo} functions
+for more details on the available geocoder services. Also see \code{vignette("tidygeocoder")}
 for example usage.
 }
 \seealso{
@@ -21,11 +22,13 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Jesse Cambon \email{jesse.cambon@gmail.com}
+\strong{Maintainer}: Jesse Cambon \email{jesse.cambon@gmail.com} (\href{https://orcid.org/0000-0001-6854-1514}{ORCID})
 
 Authors:
 \itemize{
+  \item Diego Hernangómez \email{diego.hernangomezherrero@gmail.com} (\href{https://orcid.org/0000-0001-8457-4658}{ORCID})
   \item Christopher Belanger \email{christopher.a.belanger@gmail.com}
+  \item Daniel Possenriede \email{possenriede+r@gmail.com} (\href{https://orcid.org/0000-0002-6738-9845}{ORCID})
 }
 
 }

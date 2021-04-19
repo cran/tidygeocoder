@@ -9,9 +9,10 @@ query_api(
   query_parameters,
   mode = "single",
   batch_file = NULL,
-  address_list = NULL,
+  input_list = NULL,
   content_encoding = "UTF-8",
-  timeout = 20
+  timeout = 20,
+  method = ""
 )
 }
 \arguments{
@@ -19,37 +20,44 @@ query_api(
 
 \item{query_parameters}{api query parameters in the form of a named list}
 
-\item{mode}{\itemize{
-    \item \code{"single"} : geocode a single address (all methods)
-    \item \code{"list"} : batch geocode a list of addresses (geocodio)
-    \item \code{"file"} : batch geocode a file of addresses (census)
+\item{mode}{determines the type of query to execute\preformatted{- "single": geocode a single input (all methods)
+- "list": batch geocode a list of inputs (ex. geocodio)
+- "file": batch geocode a file of inputs (ex. census)
 }}
 
-\item{batch_file}{a csv file of addresses to upload (census)}
+\item{batch_file}{a csv file of input data to upload (for \code{mode = 'file'})}
 
-\item{address_list}{a list of addresses for batch geocoding (geocodio)
-should be 'json' for geocodio and 'multipart' for census}
+\item{input_list}{a list of input data (for \code{mode = 'list'})}
 
 \item{content_encoding}{Encoding to be used for parsing content}
 
 \item{timeout}{timeout in minutes}
+
+\item{method}{if 'mapquest' or 'arcgis' then the query status code is changed appropriately}
 }
 \value{
-raw results from the query
+a named list containing the response content (\code{content}) and the HTTP request status (\code{status})
 }
 \description{
-The \code{\link{get_api_query}} function can create queries for this
+The \link{get_api_query} function can create queries for this
 function to execute.
 }
 \examples{
 \donttest{
-raw <- query_api("http://nominatim.openstreetmap.org/search", 
+raw1 <- query_api("http://nominatim.openstreetmap.org/search", 
    get_api_query("osm", list(address = 'Hanoi, Vietnam')))
    
-extract_results('osm', jsonlite::fromJSON(raw))
+raw1$status
+   
+extract_results('osm', jsonlite::fromJSON(raw1$content))
+
+raw2 <- query_api("http://nominatim.openstreetmap.org/reverse", 
+   get_api_query("osm", custom_parameters = list(lat = 38.895865, lon = -77.0307713)))
+   
+extract_reverse_results('osm', jsonlite::fromJSON(raw2$content))
 }
 
 }
 \seealso{
-\code{\link{get_api_query}} \code{\link{extract_results}} \code{\link{geo}}
+\link{get_api_query} \link{extract_results} \link{extract_reverse_results} \link{geo} \link{reverse_geo}
 }

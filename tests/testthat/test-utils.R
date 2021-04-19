@@ -5,25 +5,74 @@ test_that("Check API Parameter Reference Dataset", {
   expect_true(!any(is.na(tidygeocoder::api_parameter_reference$method)))
   
   # check for duplicates
-  unique_api_param_rows <- nrow(tidygeocoder::api_parameter_reference[c('method','generic_name')])
+  unique_api_param_rows <- nrow(tidygeocoder::api_parameter_reference[c('method', 'generic_name')])
   api_param_rows <- nrow(tidygeocoder::api_parameter_reference)
   
-  expect_equal(unique_api_param_rows,api_param_rows)
+  expect_equal(unique_api_param_rows, api_param_rows)
 })
 
 
-# Check the package_addresses() and unpackage_addresses() functions
+# check that batch functions all exist and have a batch_limit default value
+test_that('check batch function maps', {
+
+  for (method in names(tidygeocoder:::batch_func_map)) {
+    # label to include in error message so we know which method failed
+    method_label = paste0('method = "', method, '"', ' ')
+    
+    expect_true(method %in% tidygeocoder::batch_limit_reference[['method']], label = method_label)
+    expect_true(method %in% tidygeocoder::api_parameter_reference[['method']], label = method_label)
+    expect_true(is.function(tidygeocoder:::batch_func_map[[method]]), label = method_label)
+  }
+  
+  for (method in names(tidygeocoder:::reverse_batch_func_map)) {
+    # label to include in error message so we know which method failed
+    method_label = paste0('method = "', method, '"', ' ')
+    
+    expect_true(method %in% tidygeocoder::batch_limit_reference[['method']], label = method_label)
+    expect_true(method %in% tidygeocoder::api_parameter_reference[['method']], label = method_label)
+    expect_true(is.function(tidygeocoder:::reverse_batch_func_map[[method]]), label = method_label)
+  }
+  
+})
+
+
+test_that('Check Reference Datasets', {
+  # Services that require an API key should have an api_key parameter
+  # defined in api_parameter_reference and also have an environmental variable 
+  # (where the key value will be read from) declared in api_key_reference
+  expect_setequal(get_services_requiring_key(), tidygeocoder::api_key_reference[['method']])
+  
+  # make sure these datasets are unique on 'method'
+  expect_equal(
+    length(unique(tidygeocoder::api_key_reference[['method']])), 
+    nrow(tidygeocoder::api_key_reference)
+  )
+  expect_equal(
+    length(unique(tidygeocoder::batch_limit_reference[['method']])), 
+    nrow(tidygeocoder::batch_limit_reference)
+  )
+  expect_equal(
+    length(unique(tidygeocoder::min_time_reference[['method']])), 
+    nrow(tidygeocoder::min_time_reference)
+  )
+})
+
+
+# ---------------------------------------------------------------------------------------
+
+# Check the package_addresses() and unpackage_inputs() functions
 # with some duplicate addresses
 test_that("Test Duplicate and Blank/NA Address Handling", {
   
-  messy_addresses <- c('','', NA, sample_addresses$addr, NA, '', NA, sample_addresses$addr)
+  messy_addresses <- c('','', NA, tidygeocoder::sample_addresses$addr, 
+      NA, '', NA, tidygeocoder::sample_addresses$addr)
   
   addr_pack <- tidygeocoder:::package_addresses(address = messy_addresses)
   
-  # create NA lat lng fields
+  # create NA lat long fields
   results <- tidygeocoder::geo(messy_addresses, no_query = TRUE, unique_only = TRUE)[, c('lat', 'long')]
   
-  unpacked <- tidygeocoder:::unpackage_addresses(addr_pack, results, return_addresses = TRUE)
+  unpacked <- tidygeocoder:::unpackage_inputs(addr_pack, results, return_inputs = TRUE)
   
   # check data types and lengths
   expect_true(is.list(addr_pack))
@@ -68,11 +117,14 @@ test_that("Test API Query Creation Functions", {
   
   # loop through all methods and produce queries
   for (method in unique(tidygeocoder::api_parameter_reference[['method']])) {
+    # label to include in error message so we know which method failed
+    method_label = paste0('method = "', method, '"', ' ')
     
     # test overlap between generic and custom parameters
-    expect_error(tidygeocoder::get_api_query(method,
+    expect_warning(tidygeocoder::get_api_query(method,
        generic_parameters = list(address = 'abc'),
        custom_parameters = tidygeocoder:::create_api_parameter(method, 'address', 'ghj')))
+    
     
     default_q <- tidygeocoder::get_api_query(method)
     custom_q <- tidygeocoder::get_api_query(method, custom_parameters = cust_arg_list)
@@ -89,12 +141,16 @@ test_that("Test API Query Creation Functions", {
     # custom_parameters and generic_parameters arguments should just be 
     # adding to the default_q list
     expect_mapequal(custom_q, c(default_q, cust_arg_list))
-    expect_mapequal(address_q, c(default_q, 
-      tidygeocoder:::create_api_parameter(method, 'address', address_val)))
     
-    expect_message(display_named_list(default_q))
-    expect_message(display_named_list(custom_q))
-    expect_message(display_named_list(address_q))
+    # mapbox/tomtom address is removed from parameters and put into API URL so this test doesn't apply
+    if (!method %in% c('mapbox', 'tomtom')) {
+      expect_mapequal(address_q, c(default_q, 
+        tidygeocoder:::create_api_parameter(method, 'address', address_val)))
+    }
+    
+    if (length(default_q) > 0) expect_message(display_named_list(default_q), label = method_label)
+    expect_message(display_named_list(custom_q), label = method_label)
+    if (length(address_q) > 0) expect_message(display_named_list(address_q), label = method_label)
   }
 })
 
@@ -102,9 +158,9 @@ test_that("Test API Query Creation Functions", {
 
 test_that("Test Miscellaneous Functions", {
   
+  # na value function for return NA data
   num_rows <- 3
   na_vals <- tidygeocoder:::get_na_value('lat', 'long', rows = num_rows)
-  
   expect_true(tibble::is_tibble(na_vals))
   expect_true(nrow(na_vals) == num_rows)
   

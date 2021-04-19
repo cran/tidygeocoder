@@ -6,8 +6,15 @@
 \alias{geo_geocodio}
 \alias{geo_iq}
 \alias{geo_google}
-\title{Convenience functions for calling the \code{\link{geo}} function
-with a specified method}
+\alias{geo_opencage}
+\alias{geo_mapbox}
+\alias{geo_here}
+\alias{geo_tomtom}
+\alias{geo_mapquest}
+\alias{geo_bing}
+\alias{geo_arcgis}
+\alias{geo_cascade}
+\title{Convenience functions for calling \code{geo()}}
 \usage{
 geo_census(...)
 
@@ -18,11 +25,30 @@ geo_geocodio(...)
 geo_iq(...)
 
 geo_google(...)
+
+geo_opencage(...)
+
+geo_mapbox(...)
+
+geo_here(...)
+
+geo_tomtom(...)
+
+geo_mapquest(...)
+
+geo_bing(...)
+
+geo_arcgis(...)
+
+geo_cascade(...)
 }
 \arguments{
-\item{...}{arguments to be passed to the \code{\link{geo}} function}
+\item{...}{arguments to be passed to the \code{geo} function}
 }
 \description{
-Convenience functions for calling the \code{\link{geo}} function
-with a specified method
+The \code{method} for \code{geo()} is specified in the function name.
+
+\ifelse{html}{\figure{lifecycle-deprecated.svg}{options: alt='Deprecated lifecycle'}}{\strong{Deprecated}}
+
+Use the \link{geo} function directly instead.
 }

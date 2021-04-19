@@ -2,41 +2,38 @@
 
 # Get API Key from environmental variables
 get_key <- function(method) {
-  # define environmental variable name
-  env_var <- switch(method,
-         'geocodio' = "GEOCODIO_API_KEY",
-         'iq' = "LOCATIONIQ_API_KEY",
-         'google' = "GOOGLEGEOCODE_API_KEY"
-         )
+  
+  # which environmental variable are we loading the api key from?
+  env_var <- get_setting_value(tidygeocoder::api_key_reference, method, 'env_var')
+
   # load api key from environmental variable
   key <- Sys.getenv(env_var)
   
   if (key == "") stop(paste0("An API Key is needed to use the '", method, "' method.
-    Set the \"", env_var, "\" variable in your .Renviron file or with Sys.getenv()."))
+    Set the \"", env_var, "\" variable in your .Renviron file or with Sys.setenv().
+    Tip: usethis::edit_r_environ() will open your .Renviron file for editing. "), call. = FALSE)
   else return(key)
 }
 
-# API URL Functions ----------------------------------------------------------------
-
-# return : returntype => 'locations' or 'geographies'
-# search:  searchtype => 'onelineaddress', 'addressbatch', 'address', or 'coordinates'
-get_census_url <- function(return_type, search) {
-  return(paste0("https://geocoding.geo.census.gov/geocoder/", return_type, "/", search))
+# return minimum number of seconds each query should take based on usage rate limits
+get_min_query_time <- function(method) {
+  
+  # Get min_time from min_time_reference. If method not found then default to 0
+  if (method %in% tidygeocoder::min_time_reference[['method']]) {
+    min_time <- get_setting_value(tidygeocoder::min_time_reference, method, 'min_time')
+  } else {
+    min_time <- 0
+  }
+  return(min_time)
 }
 
-get_geocodio_url <- function(api_v) {
-  # return API URL based on api version (ex. 1.6)
-  return(paste0("https://api.geocod.io/v", as.character(api_v), "/geocode"))
+# Return the batch geocoding limit for the service
+# this is called from geo() and reverse_geo() when batch_limit = NULL
+get_batch_limit <- function(method) {
+  return(
+    get_setting_value(tidygeocoder::batch_limit_reference, method, 'batch_limit')
+  )
 }
-
-get_osm_url <- function() return("http://nominatim.openstreetmap.org/search")
-
-get_iq_url <- function(region) {
-  # region can be 'us' or 'eu'
-  return(paste0("https://", region, "1.locationiq.com/v1/search.php"))
-}
-
-get_google_url <- function() return("https://maps.googleapis.com/maps/api/geocode/json")
 
 # API Parameters ----------------------------------------------------------------
 
@@ -64,10 +61,10 @@ create_api_parameter <- function(method_name, param_name, value) {
 #' @description 
 #' The geocoder API query is created using universal "generic" parameters
 #' and optional api-specific "custom" parameters. Generic parameters
-#' are converted into api parameters using the  \code{\link{api_parameter_reference}} 
+#' are converted into api parameters using the  [api_parameter_reference] 
 #' dataset. 
 #' 
-#' The \code{\link{query_api}} function executes the queries created 
+#' The [query_api] function executes the queries created 
 #' by this function.
 #'  
 #' @param method method name (ie. 'census')
@@ -80,7 +77,7 @@ create_api_parameter <- function(method_name, param_name, value) {
 #' get_api_query("census", list(street = '11 Wall St', city = "NY", state = 'NY'),
 #'   list(benchmark = "Public_AR_Census2010"))
 #'
-#' @seealso \code{\link{query_api}} \code{\link{geo}} \code{\link{api_parameter_reference}} 
+#' @seealso [query_api] [api_parameter_reference] [geo] [reverse_geo]
 #' @export
 get_api_query <- function(method, generic_parameters = list(), custom_parameters = list() ) {
   api_ref <- tidygeocoder::api_parameter_reference
@@ -94,11 +91,11 @@ get_api_query <- function(method, generic_parameters = list(), custom_parameters
       )
   }
   
-  # Throw error if user passes the same parameter via a custom api-specific list 
-  # as they already did through the 'generic' parameters (address, street, etc.)
+  # Allow custom API parameters to overwrite the generic parameters but throw a warning
   for (custom_name in names(custom_parameters)) {
     if (custom_name %in% names(main_api_parameters)) {
-      stop(paste0("Custom API Parameter '", custom_name, "' was already specified"))
+      warning(paste0("Custom API Parameter '", custom_name, "' was already specified"))
+      main_api_parameters[[custom_name]] <- NULL # remove the parameter from main parameters
     }
   }
   
@@ -112,61 +109,115 @@ get_api_query <- function(method, generic_parameters = list(), custom_parameters
     )
   
   # Combine address, api_key, and default parameters for full query
-  return( c(main_api_parameters, custom_parameters, default_api_parameters) )
+  api_query_parameters <- c(main_api_parameters, custom_parameters, default_api_parameters)
+  
+  # Mapbox: Workaround to remove inputs from parameters (since it is added to the API url instead)
+  if (method == "mapbox") {
+    api_query_parameters <-
+      api_query_parameters[!names(api_query_parameters) %in% c("search_text", "to_url")]
+  }
+  # TomTom: Workaround to remove inputs from parameters (since it is added to the API url instead)
+    if (method == "tomtom") {
+    api_query_parameters <-
+      api_query_parameters[!names(api_query_parameters) %in% c("query", "to_url")]
+  }
+  # Bing: Workaround to remove inputs from parameters (since it is added to the API url instead)
+  if (method == "bing") {
+    api_query_parameters <-
+      api_query_parameters[!names(api_query_parameters) %in% c("to_url")]
+  }
+  return(api_query_parameters)
 }
 
 #' Execute a geocoder API query
 #' 
 #' @description
-#' The \code{\link{get_api_query}} function can create queries for this
+#' The [get_api_query] function can create queries for this
 #' function to execute.  
 #' 
 #' @param api_url Base URL of the API. query parameters are appended to this
 #' @param query_parameters api query parameters in the form of a named list
-#' @param mode 
-#' \itemize{
-#'     \item \code{"single"} : geocode a single address (all methods)
-#'     \item \code{"list"} : batch geocode a list of addresses (geocodio)
-#'     \item \code{"file"} : batch geocode a file of addresses (census)
-#' }
-#' @param batch_file a csv file of addresses to upload (census)
-#' @param address_list a list of addresses for batch geocoding (geocodio)
-#' should be 'json' for geocodio and 'multipart' for census 
+#' @param mode determines the type of query to execute
+#' 
+#'     - "single": geocode a single input (all methods)
+#'     - "list": batch geocode a list of inputs (ex. geocodio)
+#'     - "file": batch geocode a file of inputs (ex. census)
+#'     
+#' @param batch_file a csv file of input data to upload (for `mode = 'file'`)
+#' @param input_list a list of input data (for `mode = 'list'`)
 #' @param content_encoding Encoding to be used for parsing content
 #' @param timeout timeout in minutes
-#' @return raw results from the query
+#' @param method if 'mapquest' or 'arcgis' then the query status code is changed appropriately
+#' @return a named list containing the response content (`content`) and the HTTP request status (`status`)
 #' @examples
 #' \donttest{
-#' raw <- query_api("http://nominatim.openstreetmap.org/search", 
+#' raw1 <- query_api("http://nominatim.openstreetmap.org/search", 
 #'    get_api_query("osm", list(address = 'Hanoi, Vietnam')))
 #'    
-#' extract_results('osm', jsonlite::fromJSON(raw))
+#' raw1$status
+#'    
+#' extract_results('osm', jsonlite::fromJSON(raw1$content))
+#' 
+#' raw2 <- query_api("http://nominatim.openstreetmap.org/reverse", 
+#'    get_api_query("osm", custom_parameters = list(lat = 38.895865, lon = -77.0307713)))
+#'    
+#' extract_reverse_results('osm', jsonlite::fromJSON(raw2$content))
 #' }
 #' 
-#' @seealso \code{\link{get_api_query}} \code{\link{extract_results}} \code{\link{geo}}
+#' @seealso [get_api_query] [extract_results] [extract_reverse_results] [geo] [reverse_geo]
 #' @export 
 query_api <- function(api_url, query_parameters, mode = 'single', 
-          batch_file = NULL, address_list = NULL, content_encoding = 'UTF-8', timeout = 20) {
+          batch_file = NULL, input_list = NULL, content_encoding = 'UTF-8', timeout = 20, method = '') {
    response <- switch(mode,
     'single' = httr::GET(api_url, query = query_parameters),
     'list' = httr::POST(api_url, query = query_parameters, 
-          body = as.list(address_list), encode = 'json', httr::timeout(60 * timeout)),
+          body = as.list(input_list), encode = 'json', httr::timeout(60 * timeout)),
     'file' = httr::POST(api_url,  
           body = c(list(addressFile = httr::upload_file(batch_file)), query_parameters),
           encode = 'multipart',
-          httr::timeout(60*timeout))
+          httr::timeout(60 * timeout))
    )
   
   httr::warn_for_status(response)
   content <- httr::content(response, as = 'text', encoding = content_encoding)
-  return(content)
+  
+  # MapQuest exception on GET
+  # When a valid key is passed, errors on query are in the response
+  # Succesful code in response is 0
+  # https://developer.mapquest.com/documentation/geocoding-api/status-codes/
+  if (mode == 'single' && method == 'mapquest' && httr::status_code(response) == 200) {
+    status_code <- jsonlite::fromJSON(content)$info$statuscode
+    if (status_code == 0) status_code <- 200
+    
+    httr::warn_for_status(status_code)
+    return(list(content = content, status = status_code))
+  }
+  
+  # ArcGIS exception 
+  # Need to extract from results
+  if (method == 'arcgis' && httr::status_code(response) == 200) {
+    raw_results <- jsonlite::fromJSON(content)
+    status_code <- 200
+    if ('error' %in% names(raw_results)){
+      status_code <- raw_results$error$code
+      # One error, 498, not standard. Switching to 401      
+      if (status_code == 498) status_code <- 401
+    }
+    
+    httr::warn_for_status(status_code)
+    return(list(content = content, status = status_code))
+  }
+  
+  return(list(
+      content = content, 
+      status = httr::status_code(response)
+    ))
 }
 
 # Functions for displaying API queries (when verbose = TRUE) ----------------------
 
 # print values in a named list (used for displaying query parameters)
 display_named_list <- function(named_list) {
-  
   # unique parameter names for all api keys
   api_key_names <- unique(tidygeocoder::api_parameter_reference[which(tidygeocoder::api_parameter_reference[['generic_name']] == 'api_key'), ][['api_name']])
   
@@ -177,7 +228,6 @@ display_named_list <- function(named_list) {
     }
     message(paste0(var, ' : "', named_list[var], '"'))
   }
-  message('')
 }
 
 # Displays query URL and parameters
@@ -191,13 +241,34 @@ display_query <- function(api_url, api_query_parameters) {
 # for a method (don't call with method = 'cascade')
 # if address_only = TRUE then limit to address parameters (street, city, address, etc.)
 get_generic_parameters <- function(method, address_only = FALSE) {
-
-  all_params <- tidygeocoder::api_parameter_reference[which(tidygeocoder::api_parameter_reference[['method']] == method), ][['generic_name']]
+  all_params <- get_setting_value(tidygeocoder::api_parameter_reference, method, 'generic_name')
   
   if (address_only == TRUE) {
     return(all_params[all_params %in% pkg.globals$address_arg_names])
   } else {
     return(all_params)
   }
+}
+
+# get list of services that require an api key according to api_parameter_reference
+get_services_requiring_key <- function() {
+  return(
+    unique(tidygeocoder::api_parameter_reference[which(tidygeocoder::api_parameter_reference[['generic_name']] == 'api_key'), ][['method']])
+    )
+}
+
+# this function adds common generic
+add_common_generic_parameters <- function(generic_query, method, no_query, limit) {
+  # If API key is required then use the get_key() function to retrieve it
+  if (method %in% get_services_requiring_key()) {
+    
+    # don't attempt to load API key if no_query = TRUE. This allows you to
+    # run no_query = TRUE without having the API key loaded.
+    if (no_query == TRUE) generic_query[['api_key']] <- 'xxxxxxxxxx'
+    else generic_query[['api_key']] <- get_key(method)
+  }
+  # add limit parameter
+  if (!is.null(limit)) generic_query[['limit']] <- limit
   
+  return(generic_query)
 }
