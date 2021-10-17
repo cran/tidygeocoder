@@ -26,7 +26,7 @@ geocode(
 \item{.tbl}{dataframe containing addresses}
 
 \item{address}{single line street address column name. Do not combine with
-address component arguments (street, city, county, state, postalcode, country)}
+address component arguments (\code{street}, \code{city}, \code{county}, \code{state}, \code{postalcode}, \code{country})}
 
 \item{street}{street address column name}
 
@@ -47,9 +47,9 @@ address component arguments (street, city, county, state, postalcode, country)}
 \item{return_input}{if TRUE then the input dataset will be combined with the geocoder query results
 and returned. If FALSE only the geocoder results will be returned.}
 
-\item{limit}{maximum number of results to return per input address. For many geocoder services
+\item{limit}{maximum number of results to return per input address. For many geocoding services
 the maximum value of the limit parameter is 100. Pass \code{limit = NULL} to use
-the default \code{limit} value of the selected geocoder service.
+the default \code{limit} value of the selected geocoding service.
 For batch geocoding, limit must be set to 1 (default) if \code{return_addresses = TRUE}.
 To use \code{limit > 1} or \code{limit = NULL} set return_input to FALSE.
 Refer to \link{api_parameter_reference} for more details.}
@@ -67,21 +67,21 @@ tibble (dataframe)
 }
 \description{
 Takes a dataframe containing addresses as an input and returns
-the results from a specified geocoder service in a dataframe format using the
+the results from a specified geocoding service in a dataframe format using the
 \link{geo} function. See example usage in \code{vignette("tidygeocoder")}.
 
 This function passes all additional parameters (\code{...}) to the
 \link{geo} function, so you can refer to its documentation for more details
 on possible arguments.
 
-Note that the arguments used for specifying address columns (address,
-street, city, county, state, postalcode, and country) accept either
-quoted or unquoted column names (ie. "address_col" and address_col are
+Note that the arguments used for specifying address columns (\code{address},
+\code{street}, \code{city}, \code{county}, \code{state}, \code{postalcode}, and \code{country}) accept either
+quoted or unquoted column names (ie. \code{"address_col"} and \code{address_col} are
 both acceptable).
 }
 \examples{
 \donttest{
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 sample_addresses \%>\% slice(1:2) \%>\%
  geocode(addr, method = 'arcgis')
 

@@ -207,7 +207,7 @@ query_api <- function(api_url, query_parameters, mode = 'single',
     httr::warn_for_status(status_code)
     return(list(content = content, status = status_code))
   }
-  
+
   return(list(
       content = content, 
       status = httr::status_code(response)

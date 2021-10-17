@@ -1,4 +1,4 @@
-### Functions for extracting data or error messages from geocoder results
+### Functions for extracting data or error messages from geocoding results
 
 #' Extract forward geocoding results 
 #' 
@@ -10,12 +10,12 @@
 #' usage.
 #' 
 #' @param method method name
-#' @param response  content from the geocoder service (returned by the [query_api] function)
+#' @param response content from the geocoding service (returned by the [query_api] function)
 #' @param full_results if TRUE then the full results (not just latitude and longitude)
 #'   will be returned.
 #' @param flatten if TRUE then flatten any nested dataframe content
 #' @param limit only used for `r create_comma_list(pkg.globals$limit_passthru_methods, wrap = '"')` methods. Limits number of results per address.
-#' @return geocoder results in tibble format 
+#' @return geocoding results in tibble format 
 #' @seealso [get_api_query] [query_api] [geo]
 #' @export 
 extract_results <- function(method, response, full_results = TRUE, flatten = TRUE, limit = 1) {
@@ -41,9 +41,12 @@ extract_results <- function(method, response, full_results = TRUE, flatten = TRU
       'here' = response$items$position[c('lat','lng')],
       'tomtom' = response$results$position[c('lat', 'lon')],
       'mapquest' = response$results$locations[[1]]$latLng[c('lat','lng')],
-      'bing' = as.data.frame(matrix(unlist(response$resourceSets$resources[[1]]$point$coordinates), 
-            ncol = 2, byrow = TRUE), col.names = c('lat', 'long')),
-      'arcgis' = response$candidates$location[c('y', 'x')]
+      'bing' = extract_bing_latlng(response),
+      'arcgis' = response$candidates$location[c('y', 'x')],
+      'geoapify' = data.frame(
+        lat = response$features$geometry$coordinates[[1]][2], 
+        lon = response$features$geometry$coordinates[[1]][1]
+      ) # geoapify returns GeoJSON
   )
   
   # Return NA if data is not empty or not valid (cannot be turned into a dataframe)
@@ -79,7 +82,14 @@ extract_results <- function(method, response, full_results = TRUE, flatten = TRU
         'tomtom' = response$results,
         'mapquest' = response$results$locations[[1]],
         'bing' = response$resourceSets$resources[[1]],
-        'arcgis' = response$candidates
+        'arcgis' = response$candidates,
+        'geoapify' = 
+          cbind(
+            response$features$properties[!names(response$features$properties) %in% c('lat', 'lon')],
+            # bbox is not always returned. if it is null then return NA
+            tibble::as_tibble(c(bbox = list(
+              if (is.null(response$features$bbox)) list(NA_real_) else response$features$bbox
+              ))))
      ))
     
     # Formatted address for mapquest
@@ -91,7 +101,7 @@ extract_results <- function(method, response, full_results = TRUE, flatten = TRU
     
     # add prefix to variable names that likely could be in our input dataset
     # to avoid variable name overlap
-    for (var in c('address')) {
+    for (var in c('address', 'street', 'city', 'county', 'state', 'postalcode', 'postcode', 'country')) {
       if (var %in% names(results)) {
         names(results)[names(results) == var] <- paste0(method, '_', var)
       }
@@ -110,20 +120,20 @@ extract_results <- function(method, response, full_results = TRUE, flatten = TRU
 #' Extract reverse geocoding results 
 #' 
 #' @description
-#' Parses the output of the [query_api] function for reverse geoocding.
+#' Parses the output of the [query_api] function for reverse geoocoding.
 #' The address is extracted into the first column
 #' of the returned dataframe. This function is not used for batch 
 #' geocoded results. Refer to [query_api] for example
 #' usage.
 #' 
 #' @param method method name
-#' @param response  content from the geocoder service (returned by the [query_api] function)
+#' @param response  content from the geocoding service (returned by the [query_api] function)
 #' @param full_results if TRUE then the full results (not just an address column)
 #'   will be returned.
 #' @param flatten if TRUE then flatten any nested dataframe content
 #' @param limit only used for the `r create_comma_list(setdiff(pkg.globals$limit_passthru_methods, pkg.globals$no_reverse_methods), wrap = '"')`
 #'    method(s). Limits number of results per coordinate.
-#' @return geocoder results in tibble format 
+#' @return geocoding results in tibble format 
 #' @seealso [get_api_query] [query_api] [reverse_geo]
 #' @export 
 extract_reverse_results <- function(method, response, full_results = TRUE, flatten = TRUE, limit = 1) {
@@ -152,7 +162,8 @@ extract_reverse_results <- function(method, response, full_results = TRUE, flatt
       'mapquest' = format_address(response$results$locations[[1]],
                                   c('street', paste0('adminArea', seq(6, 1)))),
       'bing' = response$resourceSets$resources[[1]]['name'],
-      'arcgis' = response$address['LongLabel']
+      'arcgis' = response$address['LongLabel'],
+      'geoapify' = response$features$properties['formatted']
   )
   
   # Return NA if data is not empty or not valid (cannot be turned into a dataframe)
@@ -168,7 +179,7 @@ extract_reverse_results <- function(method, response, full_results = TRUE, flatt
   
   # extract other results (besides single line address)
   if (full_results == TRUE) {
-    tibble::as_tibble(results <- switch(method,
+    results <- tibble::as_tibble(switch(method,
         'osm' = extract_osm_reverse_full(response),
         'iq' =  extract_osm_reverse_full(response),
         'geocodio' = response$results[!names(response$results) %in% c('formatted_address')],
@@ -180,7 +191,8 @@ extract_reverse_results <- function(method, response, full_results = TRUE, flatt
         'tomtom' = response$addresses,
         'mapquest' = response$results$locations[[1]],
         'bing' = response$resourceSets$resources[[1]][names(response$resourceSets$resources[[1]]) != 'name'],
-        'arcgis' = response$address[names(response$address) != 'LongLabel']
+        'arcgis' = response$address[names(response$address) != 'LongLabel'],
+        'geoapify' = response$features$properties[names(response$features$properties) != 'formatted']
     ))
     
     
@@ -269,5 +281,6 @@ extract_errors_from_results <- function(method, response, verbose) {
     else if (method == 'arcgis'){
       if ("error" %in% names(raw_results)) message(paste0('Error: ', raw_results$error$message, collapse = "\n"))
     }
+    else if (method == 'geoapify') message('Error: ', paste(raw_results$error, raw_results$message, sep = ", "))
   }
 }

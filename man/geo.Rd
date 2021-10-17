@@ -17,19 +17,22 @@ geo(
   lat = lat,
   long = long,
   limit = 1,
-  min_time = NULL,
-  api_url = NULL,
-  timeout = 20,
-  mode = "",
   full_results = FALSE,
+  mode = "",
   unique_only = FALSE,
   return_addresses = TRUE,
+  min_time = NULL,
+  progress_bar = show_progress_bar(),
+  quiet = getOption("tidygeocoder.quiet", FALSE),
+  api_url = NULL,
+  timeout = 20,
   flatten = TRUE,
   batch_limit = NULL,
   batch_limit_error = TRUE,
-  verbose = FALSE,
+  verbose = getOption("tidygeocoder.verbose", FALSE),
   no_query = FALSE,
   custom_query = list(),
+  api_options = list(),
   return_type = "locations",
   iq_region = "us",
   geocodio_v = 1.6,
@@ -42,7 +45,7 @@ geo(
 \arguments{
 \item{address}{single line address (ie. '1600 Pennsylvania Ave NW, Washington, DC').
 Do not combine with the address component arguments below
-(street, city, county, state, postalcode, country).}
+(\code{street}, \code{city}, \code{county}, \code{state}, \code{postalcode}, \code{country}).}
 
 \item{street}{street address (ie. '1600 Pennsylvania Ave NW')}
 
@@ -52,52 +55,49 @@ Do not combine with the address component arguments below
 
 \item{state}{state (ie. 'Kentucky')}
 
-\item{postalcode}{postalcode (zip code if in the United States)}
+\item{postalcode}{postalcode (ie. zip code if in the United States)}
 
 \item{country}{country (ie. 'Japan')}
 
-\item{method}{the geocoder service to be used. API keys are loaded from environmental variables. Run \code{usethis::edit_r_environ()} to open your .Renviron file and add an API key as an environmental variable. For example, add the line \code{GEOCODIO_API_KEY="YourAPIKeyHere"}.
+\item{method}{the geocoding service to be used. API keys are loaded from environmental variables. Run \code{usethis::edit_r_environ()} to open your .Renviron file and add an API key as an environmental variable. For example, add the line \code{GEOCODIO_API_KEY="YourAPIKeyHere"}.
 \itemize{
 \item \code{"osm"}: \href{https://nominatim.org}{Nominatim}.
 \item \code{"census"}: \href{https://geocoding.geo.census.gov/}{US Census}. Geographic coverage is limited to the United States.  Batch geocoding is supported.
 \item \code{"arcgis"}: \href{https://developers.arcgis.com/rest/geocode/api-reference/overview-world-geocoding-service.htm}{ArcGIS}.
-\item \code{"geocodio"}: \href{https://www.geocod.io/}{Geocodio}. Geographic coverage is limited to the United States and Canada. An API key must be stored in "GEOCODIO_API_KEY". Batch geocoding is supported.
-\item \code{"iq"}: \href{https://locationiq.com/}{Location IQ}.  An API key must be stored in "LOCATIONIQ_API_KEY".
-\item \code{"google"}: \href{https://developers.google.com/maps/documentation/geocoding/overview}{Google}.  An API key must be stored in "GOOGLEGEOCODE_API_KEY".
-\item \code{"opencage"}: \href{https://opencagedata.com}{OpenCage}.  An API key must be stored in "OPENCAGE_KEY".
-\item \code{"mapbox"}: \href{https://docs.mapbox.com/api/search/}{Mapbox}.  An API key must be stored in "MAPBOX_API_KEY".
-\item \code{"here"}: \href{https://developer.here.com/products/geocoding-and-search}{HERE}.  An API key must be stored in "HERE_API_KEY". Batch geocoding is supported, but must be explicitly called with \code{mode = "batch"}.
-\item \code{"tomtom"}: \href{https://developer.tomtom.com/search-api/search-api-documentation/geocoding}{TomTom}.  An API key must be stored in "TOMTOM_API_KEY". Batch geocoding is supported.
-\item \code{"mapquest"}: \href{https://developer.mapquest.com/documentation/geocoding-api/}{MapQuest}.  An API key must be stored in "MAPQUEST_API_KEY". Batch geocoding is supported.
-\item \code{"bing"}: \href{https://docs.microsoft.com/en-us/bingmaps/rest-services/locations/}{Bing}.  An API key must be stored in "BINGMAPS_API_KEY". Batch geocoding is supported, but must be explicitly called with \code{mode = "batch"}.
-\item \code{"cascade"} : First uses one geocoder service and then uses
-a second geocoder service if the first service didn't return results.
+\item \code{"geocodio"}: \href{https://www.geocod.io/}{Geocodio}. Geographic coverage is limited to the United States and Canada. An API key must be stored in the environmental variable "GEOCODIO_API_KEY". Batch geocoding is supported.
+\item \code{"iq"}: \href{https://locationiq.com/}{Location IQ}.  An API key must be stored in the environmental variable "LOCATIONIQ_API_KEY".
+\item \code{"google"}: \href{https://developers.google.com/maps/documentation/geocoding/overview}{Google}.  An API key must be stored in the environmental variable "GOOGLEGEOCODE_API_KEY".
+\item \code{"opencage"}: \href{https://opencagedata.com}{OpenCage}.  An API key must be stored in the environmental variable "OPENCAGE_KEY".
+\item \code{"mapbox"}: \href{https://docs.mapbox.com/api/search/}{Mapbox}.  An API key must be stored in the environmental variable "MAPBOX_API_KEY".
+\item \code{"here"}: \href{https://developer.here.com/products/geocoding-and-search}{HERE}.  An API key must be stored in the environmental variable "HERE_API_KEY". Batch geocoding is supported, but must be explicitly called with \code{mode = "batch"}.
+\item \code{"tomtom"}: \href{https://developer.tomtom.com/search-api/search-api-documentation/geocoding}{TomTom}.  An API key must be stored in the environmental variable "TOMTOM_API_KEY". Batch geocoding is supported.
+\item \code{"mapquest"}: \href{https://developer.mapquest.com/documentation/geocoding-api/}{MapQuest}.  An API key must be stored in the environmental variable "MAPQUEST_API_KEY". Batch geocoding is supported.
+\item \code{"bing"}: \href{https://docs.microsoft.com/en-us/bingmaps/rest-services/locations/}{Bing}.  An API key must be stored in the environmental variable "BINGMAPS_API_KEY". Batch geocoding is supported, but must be explicitly called with \code{mode = "batch"}.
+\item \code{"geoapify"}: \href{https://www.geoapify.com/geocoding-api}{Geoapify}.  An API key must be stored in the environmental variable "GEOAPIFY_KEY".
+\item \code{"cascade"} \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} use \link{geocode_combine} or \link{geo_combine} instead.
+The "cascade" method first uses one geocoding service and then uses
+a second geocoding service if the first service didn't return results.
 The services and order is specified by the cascade_order argument.
-Note that this is not compatible with \code{full_results = TRUE} as geocoder
+Note that this is not compatible with \code{full_results = TRUE} as geocoding
 services have different columns that they return.
 }}
 
-\item{cascade_order}{a vector with two character values for the method argument
-in the order in which the geocoder services will be attempted for \code{method = "cascade"}
+\item{cascade_order}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} a vector with two character values for the
+method argument in the order in which the geocoding services will be attempted for \code{method = "cascade"}
 (ie. \code{c("census", "geocodio")})}
 
-\item{lat}{latitude column name. Can be quoted or unquoted (ie. lat or "lat").}
+\item{lat}{latitude column name. Can be quoted or unquoted (ie. \code{lat} or \code{"lat"}).}
 
-\item{long}{longitude column name. Can be quoted or unquoted (ie. long or "long").}
+\item{long}{longitude column name. Can be quoted or unquoted (ie. \code{long} or `"long"``).}
 
-\item{limit}{maximum number of results to return per input address. For many geocoder services
+\item{limit}{maximum number of results to return per input address. For many geocoding services
 the maximum value of the limit parameter is 100. Pass \code{limit = NULL} to use
-the default \code{limit} value of the selected geocoder service.
+the default \code{limit} value of the selected geocoding service.
 For batch geocoding, limit must be set to 1 (default) if \code{return_addresses = TRUE}.
 Refer to \link{api_parameter_reference} for more details.}
 
-\item{min_time}{minimum amount of time for a query to take (in seconds). If NULL
-then min_time will be set to the default value specified in \link{min_time_reference}.}
-
-\item{api_url}{custom API URL. If specified, the default API URL will be overridden.
-This parameter can be used to specify a local Nominatim server, for instance.}
-
-\item{timeout}{query timeout (in minutes)}
+\item{full_results}{returns all available data from the geocoding service if TRUE.
+If FALSE (default) then only latitude and longitude columns are returned from the geocoding service.}
 
 \item{mode}{set to 'batch' to force batch geocoding or 'single' to force single address
 geocoding (one address per query). If not specified then batch geocoding will
@@ -105,61 +105,87 @@ be used if available (given method selected) when multiple addresses are
 provided; otherwise single address geocoding will be used. For the "here" and "bing" methods the
 batch mode should be explicitly specified with \code{mode = 'batch'}.}
 
-\item{full_results}{returns all data from the geocoder service if TRUE.
-If FALSE then only longitude and latitude are returned from the geocoder service.}
-
 \item{unique_only}{only return results for unique inputs if TRUE}
 
 \item{return_addresses}{return input addresses with results if TRUE. Note that
 most services return the input addresses with \code{full_results = TRUE} and setting
 return_addresses to FALSE does not prevent this.}
 
-\item{flatten}{if TRUE then any nested dataframes in results are flattened if possible.
+\item{min_time}{minimum amount of time for a query to take (in seconds). If NULL
+then min_time will be set to the default value specified in \link{min_time_reference}.}
+
+\item{progress_bar}{if TRUE then a progress bar will be displayed to track query
+progress for single input geocoding (1 input per query). By default the progress bar
+will not be shown for code executed when knitting R Markdown files or code within
+an RStudio notebook chunk. Can be set permanently with \code{options(tidygeocoder.progress_bar = FALSE)}.}
+
+\item{quiet}{if FALSE (default) then console messages that are displayed by default regarding
+queries will be suppressed. Can be set permanently with \code{options(tidgeocoder.quiet = TRUE)}.}
+
+\item{api_url}{custom API URL. If specified, the default API URL will be overridden.
+This parameter can be used to specify a local Nominatim server, for instance.}
+
+\item{timeout}{query timeout (in minutes)}
+
+\item{flatten}{if TRUE (default) then any nested dataframes in results are flattened if possible.
 Note that in some cases results are flattened regardless such as for
 Geocodio batch geocoding.}
 
 \item{batch_limit}{limit to the number of addresses in a batch geocoding query.
 Defaults to the value in \link{batch_limit_reference} if not specified.}
 
-\item{batch_limit_error}{if TRUE then an error is thrown if the number of addresses exceeds the batch limit.
+\item{batch_limit_error}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} if TRUE then an error is thrown if the number of addresses exceeds the batch limit.
 (if executing a batch query). This is reverted to FALSE when using the cascade method.}
 
-\item{verbose}{if TRUE then detailed logs are output to the console}
+\item{verbose}{if TRUE then detailed logs are output to the console. FALSE is default. Can be set
+permanently with \code{options(tidygeocoder.verbose = TRUE)}}
 
-\item{no_query}{if TRUE then no queries are sent to the geocoder service and verbose is set to TRUE.
+\item{no_query}{if TRUE then no queries are sent to the geocoding service and verbose is set to TRUE.
 Used for testing.}
 
 \item{custom_query}{API-specific parameters to be used, passed as a named list
-(ie. \code{list(extratags = 1)}.}
+(ex. \code{list(extratags = 1)}.}
 
-\item{return_type}{only used when \code{method = "census"}. Two possible values:
+\item{api_options}{a named list of parameters specific to individual services.
+(ex. \code{list(geocodio_v = 1.6, geocodio_hipaa = TRUE)}). Each parameter begins
+with the name of the \code{method} (service) it applies to. The possible parameters
+are shown below with their default values.
 \itemize{
-\item \code{"locations"} (default)
-\item \code{"geographies"}: returns additional geography columns.
-See the Census geocoder API documentation for more details.
-}}
-
-\item{iq_region}{"us" (default) or "eu". Used for establishing the API URL for the "iq" method.}
-
-\item{geocodio_v}{version of geocodio API. Used for establishing the API URL
-for the "geocodio" method.}
-
-\item{param_error}{if TRUE then an error will be thrown if any address parameters are used that are
-invalid for the selected service (\code{method}). If \code{method = "cascade"} then no errors will be thrown.}
-
-\item{mapbox_permanent}{if TRUE then the \code{mapbox.places-permanent}
-endpoint would be used. Note that this option should be used only if you
-have applied for a permanent account. Unsuccessful requests made by an
-account that does not have access to the endpoint may be billable.}
-
-\item{here_request_id}{This parameter would return a previous HERE batch job,
+\item \code{census_return_type} (default: \code{"locations"}): set to "geographies" to return
+additional geography columns. Make sure to use \code{full_results = TRUE} if using
+the "geographies" setting.
+\item \code{iq_region} (default: \code{"us"}): set to "eu" to use the European Union API endpoint
+\item \code{geocodio_v} (default: \code{1.6}): the version number of the Geocodio API to be used
+\item \code{geocodio_hipaa} (default: \code{FALSE}): set to \code{TRUE} to use the HIPAA compliant
+Geocodio API endpoint
+\item \code{mapbox_permanent} (default: \code{FALSE}): set to \code{TRUE} to use the \code{mapbox.places-permanent}
+endpoint. Note that this option should be used only if you have applied for a permanent
+account. Unsuccessful requests made by an account that does not have access to the
+endpoint may be billable.
+\item \code{mapbox_open} (default: \code{FALSE}): set to \code{TRUE} to use the Open Geocoding endpoint which
+relies solely on OpenStreetMap data
+\item \code{here_request_id} (default: \code{NULL}): this parameter would return a previous HERE batch job,
 identified by its RequestID. The RequestID of a batch job is displayed
 when \code{verbose} is TRUE. Note that this option would ignore the
-current \code{address} parameter on the request, so \code{return_addresses}
-needs to be FALSE.}
+current \code{address} parameter on the request, so the \code{return_addresses} or \code{return_coords}
+parameters need to be FALSE.
+}}
 
-\item{mapquest_open}{if TRUE then MapQuest would use the Open Geocoding
-endpoint, that relies solely on data contributed to OpenStreetMap.}
+\item{return_type}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} use the \code{api_options} parameter instead}
+
+\item{iq_region}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} use the \code{api_options} parameter instead}
+
+\item{geocodio_v}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} use the \code{api_options} parameter instead}
+
+\item{param_error}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} if TRUE then an error will be thrown if any address
+parameters are used that are invalid for the selected service (\code{method}).
+If \code{method = "cascade"} then no errors will be thrown.}
+
+\item{mapbox_permanent}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} use the \code{api_options} parameter instead}
+
+\item{here_request_id}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} use the \code{api_options} parameter instead}
+
+\item{mapquest_open}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} use the \code{api_options} parameter instead}
 }
 \value{
 tibble (dataframe)
@@ -169,13 +195,13 @@ Geocodes addresses given as character values. The \link{geocode}
 function utilizes this function on addresses contained in dataframes.
 See example usage in \code{vignette("tidygeocoder")}.
 
-Note that not all geocoder services support certain address component
+Note that not all geocoding services support certain address component
 parameters. For example, the Census geocoder only covers the United States
 and does not have a "country" parameter.
 
 Refer to \link{api_parameter_reference},
 \link{min_time_reference}, and \link{batch_limit_reference} for more details on
-geocoder service parameters and usage.
+geocoding service parameters and usage.
 
 This function uses the \link{get_api_query}, \link{query_api}, and
 \link{extract_results} functions to create, execute, and parse geocoder
@@ -188,6 +214,9 @@ geo(street = "600 Peachtree Street NE", city = "Atlanta",
 
 geo(address = c("Tokyo, Japan", "Lima, Peru", "Nairobi, Kenya"),
  method = 'osm')
+ 
+geo("100 Main St New York, NY",  full_results = TRUE,
+ method = "census", api_options = list(census_return_type = 'geographies'))
 
 geo(county = 'Jefferson', state = "Kentucky", country = "US",
      method = 'osm')

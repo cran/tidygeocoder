@@ -2,21 +2,21 @@
 #'
 #' @description
 #' Takes a dataframe containing addresses as an input and returns 
-#' the results from a specified geocoder service in a dataframe format using the
+#' the results from a specified geocoding service in a dataframe format using the
 #' [geo] function. See example usage in `vignette("tidygeocoder")`.
 #' 
 #' This function passes all additional parameters (`...`) to the 
 #' [geo] function, so you can refer to its documentation for more details
 #' on possible arguments.
 #' 
-#' Note that the arguments used for specifying address columns (address, 
-#' street, city, county, state, postalcode, and country) accept either
-#' quoted or unquoted column names (ie. "address_col" and address_col are 
+#' Note that the arguments used for specifying address columns (`address`, 
+#' `street`, `city`, `county`, `state`, `postalcode`, and `country`) accept either
+#' quoted or unquoted column names (ie. `"address_col"` and `address_col` are 
 #' both acceptable). 
 #'
 #' @param .tbl dataframe containing addresses
 #' @param address single line street address column name. Do not combine with 
-#'  address component arguments (street, city, county, state, postalcode, country)
+#'  address component arguments (`street`, `city`, `county`, `state`, `postalcode`, `country`)
 #' @param street street address column name
 #' @param city city column name
 #' @param county county column name
@@ -38,7 +38,7 @@
 #'
 #' @examples
 #' \donttest{
-#' library(dplyr)
+#' library(dplyr, warn.conflicts = FALSE)
 #' sample_addresses %>% slice(1:2) %>%
 #'  geocode(addr, method = 'arcgis')
 #'

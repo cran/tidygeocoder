@@ -56,25 +56,12 @@ test_that("geocode null/empty addresses", {
     expect_equal(nrow(result), nrow(NA_data), label = method_label) # check dataframe length
     
   }
-  
-  # check cascade method separately
-  #expect_identical(names(geo(" ", method = 'cascade', return_addresses = FALSE, no_query = TRUE)), 
-  #                 c('lat', 'long', 'geo_method'))
-  
-  # Test batch limit detection and error/warning toggling
-  expect_error(geo(address = as.character(seq(1, 10)), 
-                   method = 'census', batch_limit = 5, no_query = TRUE, batch_limit_error = TRUE))
-  expect_warning(geo(address = as.character(seq(1, 10)), 
-                     method = 'census', batch_limit = 5, no_query = TRUE, batch_limit_error = FALSE))
-   # batch_limit_error should revert to FALSE with method = 'cascade'
-  expect_warning(geo(address = as.character(seq(1, 10)), 
-                     method = 'cascade', batch_limit = 5, no_query = TRUE, batch_limit_error = TRUE))
 })
 
 test_that("Test geo() and reverse_geo() error handling", {
   
   # invalid cascade_order
-  expect_error(geo(no_query = TRUE, address = 'abc', method = 'cascade', cascade_order = 1))
+  #expect_error(geo(no_query = TRUE, address = 'abc', method = 'cascade', cascade_order = 1))
   # invalid method
   expect_error(geo(no_query = TRUE, address = 'abc', method = '123'))
   expect_error(reverse_geo(no_query = TRUE, lat = 1, long = 2, method = '123'))
@@ -84,7 +71,11 @@ test_that("Test geo() and reverse_geo() error handling", {
   # incompatible address arguments
   expect_error(geo(no_query = TRUE, address = 'abc', street = 'xyz', no_query = TRUE)) 
   # invalid return_type
-  expect_error(geo(no_query = TRUE, address = 'abc', return_type = 'xyz')) 
+  expect_error(geo(no_query = TRUE, address = 'abc', api_options = list(census_return_type = 'xyz'))) 
+  
+  # invalid api_option argument
+  expect_error(geo(no_query = TRUE, address = 'abc', api_options = list(bad_argument = 'xyz'))) 
+  
   # invalid limit
   expect_error(geo(no_query = TRUE, address = 'abc', limit = 0)) 
   expect_error(reverse_geo(no_query = TRUE, lat = 1, long = 2, limit = 0))
@@ -99,19 +90,37 @@ test_that("Test geo() and reverse_geo() error handling", {
   
   # invalid parameters for the census service (country and limit != 1)
   expect_error(geo('yz', no_query = TRUE, country = 'abc', method = 'census'))
-
-  # improper argument value for census but param_error = FALSE so we expect a message
-  expect_message(geo(no_query = TRUE, country = 'abc', method = 'census', verbose = FALSE, param_error = FALSE))
   
   # improper parameters for cascade (limit !=1 and full_results = TRUE)
-  expect_error(geo('xy', no_query = TRUE, full_results = TRUE, method = 'cascade'))
-  expect_error(geo('ab', no_query = TRUE, limit = 5, method = 'cascade'))
+  # expect_error(geo('xy', no_query = TRUE, full_results = TRUE, method = 'cascade'))
+  # expect_error(geo('ab', no_query = TRUE, limit = 5, method = 'cascade'))
   
   # invalid mapbox_permanent parameter
-  expect_error(geo(no_query = TRUE, address = 'abc', mapbox_permanent = "AA"))
+  expect_error(geo(no_query = TRUE, address = 'abc', api_options = list(mapbox_permanent = "AA")))
   
-  # invalid here_request_id  parameter
-  expect_error(geo(no_query = TRUE, address = 'abc', here_request_id  = 12345))
+  # invalid api_options parameter
+  expect_error(geo(no_query = TRUE, address = 'abc', api_options = list(invalid_parameter = "blah")))
+  
+  # invalid here_request_id parameter
+  expect_error(geo(no_query = TRUE, address = 'abc', method = 'here', api_options = list(here_request_id  = 12345)))
+  expect_error(reverse_geo(no_query = TRUE, lat = 1, long = 2, method = 'here', api_options = list(here_request_id  = 12345)))
+  
+  # here specific batch issue for here_request_id
+  expect_error(reverse_geo(no_query = TRUE, lat = c(0,1), long = c(0,0), 
+      method = 'here', api_options = list(here_request_id = 'asdf'), return_coords = TRUE, mode = 'batch'))
+  expect_error(geo(no_query = TRUE, address = c('xyz', 'abc'),
+      method = 'here', api_options = list(here_request_id = 'asdf'), return_addresses = TRUE, mode = 'batch'))
+  
+  
+  # Test batch limit detection and error/warning toggling - geo()
+  expect_error(geo(address = as.character(seq(1, 10)), 
+                   method = 'census', batch_limit = 5, no_query = TRUE))
+  expect_warning(geo(address = as.character(seq(1, 10)), 
+                     method = 'census', batch_limit = 5, no_query = TRUE, batch_limit_error = FALSE))
+  
+  # Test reverse_geo() batch limit handling
+  expect_error(reverse_geo(lat = c(1,2,3), long = c(0,0,0),
+                   method = 'geocodio', batch_limit = 2, no_query = TRUE))
 })
 
 test_that("Test geocode() error handling", {

@@ -1,5 +1,5 @@
 ## ---- echo = FALSE, message = FALSE-------------------------------------------
-knitr::opts_chunk$set(collapse = T, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 options(tibble.print_min = 4L, tibble.print_max = 4L)
 set.seed(42)
 
@@ -42,26 +42,9 @@ census_c1 <- address_components %>%
 knitr::kable(census_c1)
 
 ## -----------------------------------------------------------------------------
-addr_comp1 <- address_components %>%
-  bind_rows(
-    tibble(
-      cty = c("Toronto", "Tokyo"), 
-      country = c("Canada", "Japan")
-    )
-  )
-
-cascade1 <- addr_comp1 %>% geocode(
-  street = street, state = st, city = cty,
-  country = country, method = "cascade"
-)
-
-## ---- echo = FALSE------------------------------------------------------------
-knitr::kable(cascade1)
-
-## -----------------------------------------------------------------------------
 census_full1 <- address_single %>% geocode(
   address = singlelineaddress,
-  method = "census", full_results = TRUE, return_type = "geographies"
+  method = "census", full_results = TRUE, api_options = list(census_return_type = 'geographies')
 )
 
 ## ---- echo = FALSE------------------------------------------------------------
@@ -114,6 +97,37 @@ uniqueonly1 <- duplicate_addrs %>%
 
 ## ---- echo = FALSE------------------------------------------------------------
 knitr::kable(uniqueonly1)
+
+## -----------------------------------------------------------------------------
+addresses_combine <- tibble(
+  address = c('100 Wall Street NY, NY', 'Paris', 'Not An Address')
+)
+
+cascade_results1 <- addresses_combine %>%
+  geocode_combine(
+    queries = list(
+      list(method = 'census'),
+      list(method = 'osm')
+    ),
+    global_params = list(address = 'address')
+  )
+
+## ---- echo = FALSE------------------------------------------------------------
+knitr::kable(cascade_results1)
+
+## -----------------------------------------------------------------------------
+no_cascade_results1 <- addresses_combine %>%
+  geocode_combine(
+    queries = list(
+      list(method = 'census'),
+      list(method = 'osm')
+    ),
+    global_params = list(address = 'address'),
+    cascade = FALSE
+  )
+
+## ---- echo = FALSE------------------------------------------------------------
+knitr::kable(no_cascade_results1)
 
 ## -----------------------------------------------------------------------------
 geo_limit <- geo(

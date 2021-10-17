@@ -1,6 +1,6 @@
 ### Functions to produce documentation
 # Functions return a character vector with one element per line
-# to produce roxygen documention
+# to produce roxygen documentation
 # see: https://roxygen2.r-lib.org/articles/rd-formatting.html#dynamic-r-code 
 
 
@@ -35,10 +35,12 @@ get_coord_address_terms <- function(reverse) {
     terms$input_singular <- 'coordinate'
     terms$input_plural <- 'coordinates'
     terms$return_arg <- "return_coords"
+    terms$base_func_name <- 'reverse_geo'
   } else {
     terms$input_singular <- 'address'
     terms$input_plural <- 'addresses'
     terms$return_arg <- "return_addresses"
+    terms$base_func_name <- 'geo'
   }
   return(terms)
 }
@@ -77,7 +79,7 @@ get_method_bullet <- function(method) {
   # if an API key is required list environmental variable
   api_requirements <- ifelse(
     method %in% tidygeocoder::api_key_reference[['method']],
-    paste0('An API key must be stored in "', 
+    paste0('An API key must be stored in the environmental variable "', 
            get_setting_value(tidygeocoder::api_key_reference, method, 'env_var'), '".'), 
   ''
   )
@@ -106,7 +108,7 @@ get_method_documentation <- function(reverse) {
   all_methods <- tidygeocoder::api_info_reference[['method']]
   
   method_intro <- paste0(c(
-    "the geocoder service to be used.", 
+    "the geocoding service to be used.", 
     "API keys are loaded from environmental variables. Run `usethis::edit_r_environ()` to open",
     'your .Renviron file and add an API key as an environmental variable. For example, add the line `GEOCODIO_API_KEY="YourAPIKeyHere"`.'
   ), collapse = ' ')
@@ -150,9 +152,9 @@ get_limit_documentation <- function(reverse, df_input) {
   terms <- get_coord_address_terms(reverse)
 
   main <- c(
-    paste0(c("maximum number of results to return per input ", terms$input_singular, ". For many geocoder services"), collapse = ''),
+    paste0(c("maximum number of results to return per input ", terms$input_singular, ". For many geocoding services"), collapse = ''),
     "the maximum value of the limit parameter is 100. Pass `limit = NULL` to use",
-    "the default `limit` value of the selected geocoder service.",
+    "the default `limit` value of the selected geocoding service.",
     paste0(c("For batch geocoding, limit must be set to 1 (default) if `", terms$return_arg, " = TRUE`."), collapse = '')
   )
   
@@ -175,5 +177,16 @@ get_mode_documentation <- function(reverse) {
             create_comma_list(pkg.globals$single_first_methods, wrap = '"'), " methods the"), collapse = ''),
       "batch mode should be explicitly specified with `mode = 'batch'`."
       )
+  )
+}
+
+get_full_results_documentation <- function(reverse) {
+  
+  return_col_str <- if (reverse == TRUE) "a single address column is returned" else "latitude and longitude columns are returned"
+
+  return(  
+    c("returns all available data from the geocoding service if TRUE. ",
+      paste0("If FALSE (default) then only ", return_col_str, " from the geocoding service.")
+    )
   )
 }

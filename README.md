@@ -5,13 +5,7 @@
 
 <!-- badges: start -->
 
-[![Project Status: Active – The project has reached a stable, usable
-state and is being actively
-developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![Lifecycle:
-stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
-[![R Build
-Status](https://github.com/jessecambon/tidygeocoder/workflows/R-CMD-check/badge.svg)](https://github.com/jessecambon/tidygeocoder/actions?workflow=R-CMD-check)
+[![JOSS](https://joss.theoj.org/papers/10.21105/joss.03544/status.svg)](https://doi.org/10.21105/joss.03544)
 [![License:
 MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/jessecambon/tidygeocoder/blob/master/LICENSE.md)
 [![CRAN](https://www.r-pkg.org/badges/version/tidygeocoder)](https://cran.r-project.org/package=tidygeocoder)
@@ -19,11 +13,15 @@ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/je
 Downloads](http://cranlogs.r-pkg.org/badges/grand-total/tidygeocoder)](https://CRAN.R-project.org/package=tidygeocoder)
 [![CRAN Downloads Per
 Month](http://cranlogs.r-pkg.org/badges/tidygeocoder)](https://cran.r-project.org/package=tidygeocoder)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4448251.svg)](https://doi.org/10.5281/zenodo.4448251)
+[![Lifecycle:
+stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
+[![R Build
+Status](https://github.com/jessecambon/tidygeocoder/workflows/R-CMD-check/badge.svg)](https://github.com/jessecambon/tidygeocoder/actions?workflow=R-CMD-check)
+[![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.5574263.svg)](https://doi.org/10.5281/zenodo.5574263)
 <!-- badges: end -->
 
-Tidygeocoder makes getting data from geocoder services easy. A unified
-high-level interface is provided for a selection of [supported geocoder
+Tidygeocoder makes getting data from geocoding services easy. A unified
+high-level interface is provided for a selection of [supported geocoding
 services](https://jessecambon.github.io/tidygeocoder/articles/geocoder_services.html)
 and results are returned in [tibble](https://tibble.tidyverse.org/)
 (dataframe) format.
@@ -38,7 +36,7 @@ and results are returned in [tibble](https://tibble.tidyverse.org/)
     unique inputs are submitted in queries, but the rows in the original
     data are preserved by default.
 -   The maximum rate of querying is automatically set according to the
-    usage policies of the selected geocoder service.
+    usage policies of the selected geocoding service.
 
 In addition to the usage examples below, see the [Getting Started
 Vignette](https://jessecambon.github.io/tidygeocoder/articles/tidygeocoder.html)
@@ -67,7 +65,7 @@ In this first example we will geocode a few addresses using the
 `geocode()` function and plot them on a map with ggplot.
 
 ``` r
-library(dplyr)
+library(dplyr, warn.conflicts = FALSE)
 library(tibble)
 library(tidygeocoder)
 
@@ -82,15 +80,17 @@ some_addresses <- tribble(
 # geocode the addresses
 lat_longs <- some_addresses %>%
   geocode(addr, method = 'osm', lat = latitude , long = longitude)
+#> Passing 3 addresses to the Nominatim single address geocoder
+#> Query completed in: 3 seconds
 ```
 
 The `geocode()` function geocodes addresses contained in a dataframe.
-The [Nominatim (“osm”)](https://nominatim.org/) geocoder service is used
-here, but other services can be specified with the `method` argument.
-Only latitude and longitude are returned from the geocoder service in
-this example, but `full_results = TRUE` can be used to return all of the
-data from the geocoder service. See the `geo()` function documentation
-for details.
+The [Nominatim (“osm”)](https://nominatim.org/) geocoding service is
+used here, but other services can be specified with the `method`
+argument. Only latitude and longitude are returned from the geocoding
+service in this example, but `full_results = TRUE` can be used to return
+all of the data from the geocoding service. See the `geo()` function
+documentation for details.
 
 | name                 | addr                                       | latitude |  longitude |
 |:---------------------|:-------------------------------------------|---------:|-----------:|
@@ -120,7 +120,7 @@ are similar to the `geocode()` function, but now we specify the input
 data columns with the `lat` and `long` arguments. The dataset used here
 is from the geocoder query above. The single line address is returned in
 a column named by the `address` argument and all columns from the
-geocoder service are returned because `full_results = TRUE`. See the
+geocoding service are returned because `full_results = TRUE`. See the
 `reverse_geo()` function documentation for more details.
 
 <!-- 
@@ -133,13 +133,15 @@ reverse <- lat_longs %>%
   reverse_geocode(lat = latitude, long = longitude, method = 'osm',
                   address = address_found, full_results = TRUE) %>%
   select(-addr, -licence)
+#> Passing 3 coordinates to the Nominatim single coordinate geocoder
+#> Query completed in: 3 seconds
 ```
 
-| name                 | latitude |  longitude | address\_found                                                                                                                                                  | place\_id | osm\_type |   osm\_id | osm\_lat           | osm\_lon            | historic    | house\_number | road                          | city          | state                | postcode | country       | country\_code | boundingbox                                          | tourism              | neighbourhood      | county        | building     | suburb |
-|:---------------------|---------:|-----------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------|----------:|:----------|----------:|:-------------------|:--------------------|:------------|:--------------|:------------------------------|:--------------|:---------------------|:---------|:--------------|:--------------|:-----------------------------------------------------|:---------------------|:-------------------|:--------------|:-------------|:-------|
-| White House          | 38.89770 |  -77.03655 | White House, 1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States                                                        | 147370893 | way       | 238241022 | 38.897699700000004 | -77.03655315        | White House | 1600          | Pennsylvania Avenue Northwest | Washington    | District of Columbia | 20500    | United States | us            | 38.8974908 , 38.897911 , -77.0368537, -77.0362519    | NA                   | NA                 | NA            | NA           | NA     |
-| Transamerica Pyramid | 37.79520 | -122.40279 | Transamerica Pyramid, 600, Montgomery Street, Financial District, San Francisco, San Francisco City and County, San Francisco, California, 94111, United States |  95364489 | way       |  24222973 | 37.795200550000004 | -122.40279267840137 | NA          | 600           | Montgomery Street             | San Francisco | California           | 94111    | United States | us            | 37.7948854 , 37.7954472 , -122.4031399, -122.4024317 | Transamerica Pyramid | Financial District | San Francisco | NA           | NA     |
-| Willis Tower         | 41.87887 |  -87.63591 | Willis Tower, 233, South Wacker Drive, Printer’s Row, Loop, Chicago, Cook County, Illinois, 60606, United States                                                | 103673983 | way       |  58528804 | 41.878871700000005 | -87.63590893936448  | NA          | 233           | South Wacker Drive            | Chicago       | Illinois             | 60606    | United States | us            | 41.8785389 , 41.8791932 , -87.6363362, -87.6354746   | NA                   | Printer’s Row      | Cook County   | Willis Tower | Loop   |
+| name                 | latitude |  longitude | address\_found                                                                                                                                         | place\_id | osm\_type |   osm\_id | osm\_lat           | osm\_lon            | office      | house\_number | road                          | city          | state                | postcode | country       | country\_code | boundingbox                                          | tourism              | neighbourhood | county        | building     | suburb |
+|:---------------------|---------:|-----------:|:-------------------------------------------------------------------------------------------------------------------------------------------------------|----------:|:----------|----------:|:-------------------|:--------------------|:------------|:--------------|:------------------------------|:--------------|:---------------------|:---------|:--------------|:--------------|:-----------------------------------------------------|:---------------------|:--------------|:--------------|:-------------|:-------|
+| White House          | 38.89770 |  -77.03655 | White House, 1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States                                               | 147370996 | way       | 238241022 | 38.897699700000004 | -77.03655315        | White House | 1600          | Pennsylvania Avenue Northwest | Washington    | District of Columbia | 20500    | United States | us            | 38.8974908 , 38.897911 , -77.0368537, -77.0362519    | NA                   | NA            | NA            | NA           | NA     |
+| Transamerica Pyramid | 37.79520 | -122.40279 | Transamerica Pyramid, 600, Montgomery Street, Chinatown, San Francisco, San Francisco City and County, San Francisco, California, 94111, United States |  95364489 | way       |  24222973 | 37.795200550000004 | -122.40279267840137 | NA          | 600           | Montgomery Street             | San Francisco | California           | 94111    | United States | us            | 37.7948854 , 37.7954472 , -122.4031399, -122.4024317 | Transamerica Pyramid | Chinatown     | San Francisco | NA           | NA     |
+| Willis Tower         | 41.87887 |  -87.63591 | Willis Tower, 233, South Wacker Drive, Printer’s Row, Loop, Chicago, Cook County, Illinois, 60606, United States                                       | 103673983 | way       |  58528804 | 41.878871700000005 | -87.63590893936448  | NA          | 233           | South Wacker Drive            | Chicago       | Illinois             | 60606    | United States | us            | 41.8785389 , 41.8791932 , -87.6363362, -87.6354746   | NA                   | Printer’s Row | Cook County   | Willis Tower | Loop   |
 
 ## In the Wild
 
@@ -151,6 +153,9 @@ tidygeocoder:
     part of a [statistical computing
     course](http://www2.stat.duke.edu/courses/Spring21/sta323.001/) at
     Duke.
+-   [Geocoding the Minard
+    Map](https://www.jla-data.net/eng/minard-map-tidygeocoder/) -
+    recreating a famous infographic with geocoding.
 -   [Mapping a network of women in
     demography](https://www.monicaalexander.com/posts/2021-21-02-mapping/) -
     using rvest and tidygeocoder to map Google Scholar data.
@@ -166,7 +171,7 @@ tidygeocoder:
 Contributions to the tidygeocoder package are welcome. File [an
 issue](https://github.com/jessecambon/tidygeocoder/issues) for bug fixes
 or suggested features. If you would like to contribute code such as
-adding support for a new geocoder service, reference the [developer
+adding support for a new geocoding service, reference the [developer
 notes](https://jessecambon.github.io/tidygeocoder/articles/developer_notes.html)
 for instructions and documentation.
 
@@ -183,23 +188,27 @@ citation('tidygeocoder')
 <blockquote>
 
 
-    To cite tidygeocoder in publications use:
+    To cite tidygeocoder use:
 
-      Jesse Cambon, Diego Hernangómez, Christopher Belanger, Daniel
-      Possenriede (2021). tidygeocoder: Geocoding Made Easy. R package
-      version 1.0.3. DOI: 10.5281/zenodo.4686074. URL:
-      https://CRAN.R-project.org/package=tidygeocoder.
+      Cambon J, Hernangómez D, Belanger C, Possenriede D (2021).
+      tidygeocoder: An R package for geocoding. Journal of Open Source
+      Software, 6(65), 3544, https://doi.org/10.21105/joss.03544 (R package
+      version 1.0.4)
 
     A BibTeX entry for LaTeX users is
 
-      @Misc{,
-        title = {tidygeocoder: Geocoding Made Easy},
+      @Article{,
+        title = {tidygeocoder: An R package for geocoding},
         author = {Jesse Cambon and Diego Hernangómez and Christopher Belanger and Daniel Possenriede},
+        doi = {10.21105/joss.03544},
+        url = {https://doi.org/10.21105/joss.03544},
+        journal = {Journal of Open Source Software},
+        publisher = {The Open Journal},
         year = {2021},
-        publisher = {Zenodo},
-        note = {R package version 1.0.3},
-        url = {https://CRAN.R-project.org/package=tidygeocoder},
-        doi = {10.5281/zenodo.4686074},
+        volume = {6},
+        number = {65},
+        pages = {3544},
+        note = {R package version 1.0.4},
       }
 
 </blockquote>
