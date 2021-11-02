@@ -71,19 +71,19 @@ progress_geo <- function(pb = NULL, ...) {
 #' 
 #' @param min_time minimum amount of time for a query to take (in seconds). If NULL
 #' then min_time will be set to the default value specified in [min_time_reference].
-#' @param progress_bar if TRUE then a progress bar will be displayed to track query
-#'   progress for single input geocoding (1 input per query). By default the progress bar
+#' @param progress_bar if TRUE then a progress bar will be displayed
+#'   for single input geocoding (1 input per query). By default the progress bar
 #'   will not be shown for code executed when knitting R Markdown files or code within 
 #'   an RStudio notebook chunk. Can be set permanently with `options(tidygeocoder.progress_bar = FALSE)`.
-#' @param quiet if FALSE (default) then console messages that are displayed by default regarding
-#'   queries will be suppressed. Can be set permanently with `options(tidgeocoder.quiet = TRUE)`.
+#' @param quiet if TRUE then console messages that are displayed by default
+#'   regarding queries will be suppressed. FALSE is default.
+#'   Can be set permanently with `options(tidygeocoder.quiet = TRUE)`.
 #' @param api_url custom API URL. If specified, the default API URL will be overridden.
 #'  This parameter can be used to specify a local Nominatim server, for instance.
 #' @param timeout query timeout (in minutes)
 #' 
 #' @param flatten if TRUE (default) then any nested dataframes in results are flattened if possible.
-#'    Note that in some cases results are flattened regardless such as for
-#'    Geocodio batch geocoding.
+#'    Note that in some cases results are flattened regardless such as for Geocodio batch geocoding.
 #' @param batch_limit  `r get_batch_limit_documentation(reverse = FALSE)`
 #' @param batch_limit_error `r lifecycle::badge("deprecated")` `r get_batch_limit_error_documentation(reverse = FALSE)`
 #' @param verbose if TRUE then detailed logs are output to the console. FALSE is default. Can be set 
@@ -99,7 +99,7 @@ progress_geo <- function(pb = NULL, ...) {
 #'   with the name of the `method` (service) it applies to. The possible parameters
 #'   are shown below with their default values.
 #'   
-#'   - `census_return_type` (default: `"locations"`): set to "geographies" to return
+#'   - `census_return_type` (default: `"locations"`): set to `"geographies"` to return
 #'     additional geography columns. Make sure to use `full_results = TRUE` if using
 #'     the "geographies" setting.
 #'   - `iq_region` (default: `"us"`): set to "eu" to use the European Union API endpoint 
@@ -131,6 +131,8 @@ progress_geo <- function(pb = NULL, ...) {
 #' @return tibble (dataframe)
 #' @examples
 #' \donttest{
+#' options(tidygeocoder.progress_bar = FALSE)
+#' 
 #' geo(street = "600 Peachtree Street NE", city = "Atlanta",
 #'  state = "Georgia", method = "census")
 #' 
@@ -145,18 +147,45 @@ progress_geo <- function(pb = NULL, ...) {
 #' }
 #' @seealso [geocode] [api_parameter_reference] [min_time_reference] [batch_limit_reference]
 #' @export
-geo <- function(address = NULL, 
-    street = NULL, city = NULL, county = NULL, state = NULL, postalcode = NULL, country = NULL,
-    method = 'osm', cascade_order = c('census', 'osm'), lat = lat, long = long, limit = 1, 
-    full_results = FALSE, mode = '', unique_only = FALSE, return_addresses = TRUE,
-    min_time = NULL, progress_bar = show_progress_bar(), quiet = getOption("tidygeocoder.quiet", FALSE), 
-    api_url = NULL, timeout = 20, flatten = TRUE, batch_limit = NULL, batch_limit_error = TRUE, 
-    verbose = getOption("tidygeocoder.verbose", FALSE), no_query = FALSE, 
-    custom_query = list(), api_options = list(), 
-    return_type = 'locations', iq_region = 'us', geocodio_v = 1.6, 
-    param_error = TRUE, mapbox_permanent = FALSE, here_request_id = NULL,
-    mapquest_open = FALSE) {
-
+geo <- 
+  function(
+    address = NULL,
+    street = NULL,
+    city = NULL,
+    county = NULL,
+    state = NULL,
+    postalcode = NULL,
+    country = NULL,
+    method = 'osm',
+    cascade_order = c('census', 'osm'),
+    lat = 'lat',
+    long = 'long',
+    limit = 1,
+    full_results = FALSE,
+    mode = '',
+    unique_only = FALSE,
+    return_addresses = TRUE,
+    min_time = NULL,
+    progress_bar = show_progress_bar(),
+    quiet = getOption("tidygeocoder.quiet", FALSE),
+    api_url = NULL,
+    timeout = 20,
+    flatten = TRUE,
+    batch_limit = NULL,
+    batch_limit_error = TRUE,
+    verbose = getOption("tidygeocoder.verbose", FALSE),
+    no_query = FALSE,
+    custom_query = list(),
+    api_options = list(),
+    return_type = 'locations',
+    iq_region = 'us',
+    geocodio_v = 1.6,
+    param_error = TRUE,
+    mapbox_permanent = FALSE,
+    here_request_id = NULL,
+    mapquest_open = FALSE
+  ) {
+  
   # NSE - Quote unquoted vars without double quoting quoted vars
   # end result - all of these variables become character values
   lat <- rm_quote(deparse(substitute(lat)))

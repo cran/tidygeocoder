@@ -14,8 +14,8 @@ geo(
   country = NULL,
   method = "osm",
   cascade_order = c("census", "osm"),
-  lat = lat,
-  long = long,
+  lat = "lat",
+  long = "long",
   limit = 1,
   full_results = FALSE,
   mode = "",
@@ -114,13 +114,14 @@ return_addresses to FALSE does not prevent this.}
 \item{min_time}{minimum amount of time for a query to take (in seconds). If NULL
 then min_time will be set to the default value specified in \link{min_time_reference}.}
 
-\item{progress_bar}{if TRUE then a progress bar will be displayed to track query
-progress for single input geocoding (1 input per query). By default the progress bar
+\item{progress_bar}{if TRUE then a progress bar will be displayed
+for single input geocoding (1 input per query). By default the progress bar
 will not be shown for code executed when knitting R Markdown files or code within
 an RStudio notebook chunk. Can be set permanently with \code{options(tidygeocoder.progress_bar = FALSE)}.}
 
-\item{quiet}{if FALSE (default) then console messages that are displayed by default regarding
-queries will be suppressed. Can be set permanently with \code{options(tidgeocoder.quiet = TRUE)}.}
+\item{quiet}{if TRUE then console messages that are displayed by default
+regarding queries will be suppressed. FALSE is default.
+Can be set permanently with \code{options(tidygeocoder.quiet = TRUE)}.}
 
 \item{api_url}{custom API URL. If specified, the default API URL will be overridden.
 This parameter can be used to specify a local Nominatim server, for instance.}
@@ -128,8 +129,7 @@ This parameter can be used to specify a local Nominatim server, for instance.}
 \item{timeout}{query timeout (in minutes)}
 
 \item{flatten}{if TRUE (default) then any nested dataframes in results are flattened if possible.
-Note that in some cases results are flattened regardless such as for
-Geocodio batch geocoding.}
+Note that in some cases results are flattened regardless such as for Geocodio batch geocoding.}
 
 \item{batch_limit}{limit to the number of addresses in a batch geocoding query.
 Defaults to the value in \link{batch_limit_reference} if not specified.}
@@ -151,7 +151,7 @@ Used for testing.}
 with the name of the \code{method} (service) it applies to. The possible parameters
 are shown below with their default values.
 \itemize{
-\item \code{census_return_type} (default: \code{"locations"}): set to "geographies" to return
+\item \code{census_return_type} (default: \code{"locations"}): set to \code{"geographies"} to return
 additional geography columns. Make sure to use \code{full_results = TRUE} if using
 the "geographies" setting.
 \item \code{iq_region} (default: \code{"us"}): set to "eu" to use the European Union API endpoint
@@ -209,6 +209,8 @@ API queries.
 }
 \examples{
 \donttest{
+options(tidygeocoder.progress_bar = FALSE)
+
 geo(street = "600 Peachtree Street NE", city = "Atlanta",
  state = "Georgia", method = "census")
 
